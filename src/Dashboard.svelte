@@ -290,7 +290,11 @@
 
 											<!-- all metadata -->
 											<TabPanel>
-												<InspectGraph graph={p_metadata} preload={gd_repo.pretty} prefixes={h_prefixes_share} />
+												<InspectGraph graph={p_metadata} preload={gd_repo.pretty} prefixes={h_prefixes_share}>
+													<svelte:fragment slot="actions">
+														<button class="new-branch">New Branch</button>
+													</svelte:fragment>
+												</InspectGraph>
 											</TabPanel>
 
 											{#each Object.entries(gd_repo.branches) as [p_branch, g_branch]}

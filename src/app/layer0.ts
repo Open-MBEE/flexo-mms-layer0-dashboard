@@ -48,9 +48,13 @@ interface Downloaded {
 
 export const P_IRI_MMS = 'https://mms.openmbee.org/rdf';
 
-export const P_IRI_ROOT_CONTEXT = 'https://mms5.jpl.nasa.gov';
+export const P_IRI_ROOT_CONTEXT = import.meta.env.VITE_ROOT_CONTEXT;
+export const P_IRI_SPARQL_ENDPOINT = import.meta.env.VITE_SPARQL_ENDPOINT;
 
-export const P_IRI_SPARQL_ENDPOINT = 'https://mms5-proxy.jpl.nasa.gov/sparql';
+if(!P_IRI_ROOT_CONTEXT || !P_IRI_SPARQL_ENDPOINT) {
+	throw new Error('Environment variables not defined');
+}
+
 
 export const H_PREFIXES_DEFAULT = {
 	rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',

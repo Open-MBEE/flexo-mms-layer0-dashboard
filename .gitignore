@@ -1,14 +1,14 @@
 **/.DS_Store
 /input
 /build
+/dist
 /public/build
 /scrap
 /node_modules
-*.env
-.env.*
 sftp-config.json
 /data
 *.ignore
+*.local
 .git-*
 /*.local.sh
 

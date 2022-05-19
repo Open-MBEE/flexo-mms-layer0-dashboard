@@ -88,6 +88,10 @@
 
 	.actions {
 		padding: 12px 20px;
+
+		:global([class^="new-"]) {
+			background-color: #31d12c;
+		}
 	}
 
 	:global(.busy) {
@@ -103,6 +107,7 @@
 <div class="actions" bind:this={dm_actions}>
 	<button class="refresh" on:click={refresh}>Refresh</button>
 	<button class="overwrite" on:click={overwrite}>Overwrite</button>
+	<slot name="actions"></slot>
 </div>
 
 {#key c_reloads}
