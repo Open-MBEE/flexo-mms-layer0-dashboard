@@ -1,0 +1,48 @@
+{
+  "name": "mms5-dashboard",
+  "version": "0.0.1",
+  "author": "Blake Regalia <blake.d.regalia@jpl.nasa.gov>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "vite build --mode test",
+    "dev": "vite --mode dev",
+    "test": "vite --mode test",
+    "start": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json"
+  },
+  "devDependencies": {
+    "@esbuild-plugins/node-globals-polyfill": "^0.1.1",
+    "@esbuild-plugins/node-modules-polyfill": "^0.1.4",
+    "@tsconfig/svelte": "^3.0.0",
+    "@types/xmldom": "^0.1.31",
+    "@zerollup/ts-transform-paths": "^1.7.18",
+    "less": "^4.1.2",
+    "rollup-plugin-node-polyfills": "^0.2.1",
+    "svelte": "^3.44.2",
+    "svelte-check": "^2.2.10",
+    "svelte-preprocess": "^4.9.8",
+    "ts-toolbelt": "^9.6.0",
+    "tslib": "^2.3.1",
+    "ttypescript": "^1.5.13",
+    "typescript": "^4.5.2",
+    "vite": "^2.9.9"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "^5.15.4",
+    "@fortawesome/free-solid-svg-icons": "^5.15.4",
+    "@graphy/content.ttl.read": "^4.3.4",
+    "@graphy/memory.dataset.fast": "^4.3.5",
+    "@rdfjs-elements/rdf-editor": "^0.5.2",
+    "@sveltejs/vite-plugin-svelte": "^1.0.0-next.44",
+    "@types/n3": "^1.10.4",
+    "gretchen": "^1.5.0",
+    "svelte-fa": "https://github.com/blake-regalia/svelte-fa",
+    "svelte-select": "4.4.6",
+    "svelte-simple-modal": "^1.1.1",
+    "svelte-tabs": "^1.1.0",
+    "svelte-virtual-scroll-list": "^1.0.8",
+    "xmldom": "^0.6.0",
+    "xpath": "0.0.32"
+  }
+}

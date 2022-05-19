@@ -1,0 +1,23 @@
+**/.DS_Store
+/input
+/build
+/public/build
+/scrap
+/node_modules
+*.env
+.env.*
+sftp-config.json
+/data
+*.ignore
+.git-*
+/*.local.sh
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Yarn Integrity file
+.yarn-integrity
