@@ -44,6 +44,7 @@
 
 	let p_cluster = '';
 	let st_cluster = '';
+	let st_registry = '';
 	let h_orgs_repos: Dict<OrgStruct> = {};
 	let h_prefixes_share: Dict = {};
 
@@ -72,6 +73,17 @@
 		st_cluster = g_downloaded.pretty;
 		h_prefixes_share = g_downloaded.prefixes;
 		const hc3_cluster = g_downloaded.triples;
+
+		const g_download_reg = await download(`
+			construct { ?s ?p ?o }
+			where {
+				graph m-graph:Graphs {
+					?s ?p ?o
+				}
+			}
+		`, {}, () => {});
+
+		st_registry = g_download_reg.pretty;
 
 		for(const [p_org, g_org] of Object.entries(h_orgs_repos_local)) {
 			const hc2_org = hc3_cluster['>'+p_org];
@@ -238,6 +250,9 @@
 					<!-- cluster metadata -->
 					<Tab>(cluster metadata)</Tab>
 
+					<!-- graph registry -->
+					<Tab>(graph registry)</Tab>
+
 					<!-- each org -->
 					{#each Object.entries(h_orgs_repos) as [p_org, g_org]}
 						<Tab>{value(g_org.id)}</Tab>
@@ -247,6 +262,11 @@
 				<!-- cluster metadata tab -->
 				<TabPanel>
 					<rdf-editor format="text/turtle" value={st_cluster}></rdf-editor>
+				</TabPanel>
+
+				<!-- graph registry tab -->
+				<TabPanel>
+					<rdf-editor format="text/turtle" value={st_registry}></rdf-editor>
 				</TabPanel>
 
 				<!-- each org -->
