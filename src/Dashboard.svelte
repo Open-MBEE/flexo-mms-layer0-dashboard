@@ -191,6 +191,26 @@
 			count: +a_results[0].count.value,
 		};
 	}
+
+	let h_loaded_models: Dict = {};
+
+	async function load_model(p_model: string, dm_button: HTMLButtonElement) {
+		const {
+			pretty: st_repo,
+		} = await download(`
+			construct { ?s ?p ?o }
+			where {
+				graph <${p_model}> {
+					?s ?p ?o .
+				}
+			}
+		`);
+
+		// assign-update loaded models dict
+		h_loaded_models = {
+			[p_model]: st_repo,
+		};
+	}
 </script>
 
 <style lang="less">
@@ -317,10 +337,12 @@
 												</InspectGraph>
 											</TabPanel>
 
+											<!-- branches -->
 											{#each Object.entries(gd_repo.branches) as [p_branch, g_branch]}
 												<TabPanel>
 													<h6 class="literal">{terse(g_branch.id)}</h6>
 
+													<!-- snapshots -->
 													<Tabs>
 														<TabList>
 															{#each Object.entries(g_branch.snapshots) as [p_snapshot, g_snapshot]}
@@ -329,13 +351,24 @@
 														</TabList>
 
 														{#each Object.entries(g_branch.snapshots) as [p_snapshot, g_snapshot]}
+															{@const p_model = g_snapshot.graph}
 															<TabPanel>
-																<div class="uri">{g_snapshot.graph}</div>
+																<div class="uri">{p_model}</div>
 
-																{#await model_stats(g_snapshot.graph)}
+																{#await model_stats(p_model)}
 																	Loading...
 																{:then g_model}
-																	Triple count: {g_model.count}
+																	<div class="model-stats">
+																		Triple count: {g_model.count}
+																	</div>
+
+																	{#if h_loaded_models[p_model]}
+																		<rdf-editor format="text/turtle" value={h_loaded_models[p_model]}></rdf-editor>
+																	{:else}
+																		<button class="load-model" on:click={() => load_model(p_model, this)}>
+																			Load entire model into textarea
+																		</button>
+																	{/if}
 																{:catch e_load}
 																	Failed to load:
 																	<pre>{e_load.stack}</pre>

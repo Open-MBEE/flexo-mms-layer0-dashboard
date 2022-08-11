@@ -4,6 +4,9 @@
   "author": "Blake Regalia <blake.d.regalia@jpl.nasa.gov>",
   "license": "MIT",
   "private": true,
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "scripts": {
     "build": "vite build --mode test",
     "dev": "vite --mode dev",

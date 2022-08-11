@@ -137,7 +137,7 @@ export function first<w_return>(asi: Iterable<w_return>, w_fallback: any=undefin
 
 export async function download(
 	sq_construct: string,
-	h_data: Dict,
+	h_data: Dict={},
 	fk_data: ((g_quad: Quad) => void)=()=>{},
 	fk_quads: ((hc3: any, ds_writer?: any) => any)=(hc3)=>hc3
 ): Promise<Downloaded> {
