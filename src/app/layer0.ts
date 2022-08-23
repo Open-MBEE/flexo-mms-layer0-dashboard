@@ -1,6 +1,6 @@
 import type { Dict } from "#/util/types";
 
-import SparqlEndpoint from "#/util/sparql-endpoint";
+import SparqlEndpoint, { Sparql } from "#/util/sparql-endpoint";
 
 import read_ttl from '@graphy/content.ttl.read';
 import write_ttl from '@graphy/content.ttl.write';
@@ -50,6 +50,7 @@ export const P_IRI_MMS = 'https://mms.openmbee.org/rdf';
 
 export const P_IRI_ROOT_CONTEXT = import.meta.env.VITE_ROOT_CONTEXT;
 export const P_IRI_SPARQL_ENDPOINT = import.meta.env.VITE_SPARQL_ENDPOINT;
+export const P_IRI_SPARQL_GSP_ENDPOINT = import.meta.env.VITE_SPARQL_GSP_ENDPOINT;
 
 if(!P_IRI_ROOT_CONTEXT || !P_IRI_SPARQL_ENDPOINT) {
 	throw new Error('Environment variables not defined');
@@ -128,8 +129,10 @@ export const prefixes = (gc_prefixes: Dict) => {
 
 export const k_endpoint = new SparqlEndpoint({
 	endpoint: P_IRI_SPARQL_ENDPOINT,
+	gsp: P_IRI_SPARQL_GSP_ENDPOINT,
 	prefixes: {},
 });
+
 
 export function first<w_return>(asi: Iterable<w_return>, w_fallback: any=undefined) { return [...(asi || [w_fallback])][0]; }
 

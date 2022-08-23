@@ -11,6 +11,7 @@ interface AbortCallback {
 
 export interface SparqlEndpointConfig {
 	endpoint: string;
+	gsp?: string;
 	prefixes?: Dict;
 	concurrency?: number;
 	variables?: Dict;
@@ -61,6 +62,7 @@ export class SparqlQueryHelper {
 
 export class SparqlEndpoint {
 	_p_endpoint: string;
+	_p_gsp: string;
 	_h_prefixes: Dict;
 	_kl_fetch: AsyncLockPool;
 	_sq_prefixes: string;
@@ -68,6 +70,7 @@ export class SparqlEndpoint {
 
 	constructor(gc_init: SparqlEndpointConfig) {
 		this._p_endpoint = gc_init.endpoint;
+		this._p_gsp = gc_init.gsp || this._p_endpoint+'/gsp/';
 		this._h_prefixes = gc_init.prefixes || {};
 		this._kl_fetch = new AsyncLockPool(gc_init.concurrency || 1);
 		this._sq_prefixes = Object.entries(this._h_prefixes)
@@ -107,7 +110,7 @@ export class SparqlEndpoint {
 		// submit HTTP GET request
 		let d_res!: Response;
 		try {
-			d_res = await fetch(this._p_endpoint+'/gsp/?'+new URLSearchParams({
+			d_res = await fetch(this._p_gsp+'?'+new URLSearchParams({
 				graph: p_graph,
 			}).toString(), {
 				method: 'GET',
@@ -151,7 +154,7 @@ export class SparqlEndpoint {
 		// submit HTTP PUT request
 		let d_res!: Response;
 		try {
-			d_res = await fetch(this._p_endpoint+'/gsp/?'+new URLSearchParams({
+			d_res = await fetch(this._p_gsp+'?'+new URLSearchParams({
 				graph: p_graph,
 			}).toString(), {
 				method: 'PUT',
