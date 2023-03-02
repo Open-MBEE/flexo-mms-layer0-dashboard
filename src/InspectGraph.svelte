@@ -54,8 +54,12 @@
 					?s ?p ?o .
 				}
 			}
-		`, {}, () => {}, s_sort
-			? (hc3_triples, ds_writer) => {
+		`, {}, () => {}, (hc3_triples, ds_writer) => {
+			if(!hc3_triples) {
+				throw new Error(`No such graph exists in triplestore`);
+			}
+
+			if(s_sort) {
 				ds_writer.write({
 					type: 'comment',
 					value: `Sorted in ${b_reverse? 'reverse ': ' '}'${s_sort}' order (most recent transactions appear at the top)`,
@@ -64,11 +68,13 @@
 				return Object.fromEntries(Object.entries(hc3_triples).sort(([p_a, hc2_a], [p_b, hc2_b]) => {
 					return mms_prop(hc2_a, s_sort) < mms_prop(hc2_b, s_sort)? (b_reverse? 1: -1): (b_reverse? -1: 1);
 				}));
-			}: (hc3_triples) => {
+			}
+			else {
 				return Object.fromEntries(Object.entries(hc3_triples).sort(([p_a], [p_b]) => {
 					return p_a < p_b? (b_reverse? 1: -1): (b_reverse? -1: 1);
 				}));
-			});
+			}
+		});
 
 
 		dm_actions.querySelector('.refresh').classList.remove('busy');

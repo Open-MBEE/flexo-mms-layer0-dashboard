@@ -79,6 +79,22 @@ export class SparqlEndpoint {
 		this._k_helper = new SparqlQueryHelper(gc_init.variables || {});
 	}
 
+	set endpoint(p_endpoint: string) {
+		this._p_endpoint = p_endpoint;
+	}
+
+	get endpoint(): string {
+		return this._p_endpoint;
+	}
+
+	set gsp(p_gsp: string) {
+		this._p_gsp = p_gsp;
+	}
+
+	get gsp(): string {
+		return this._p_gsp;
+	}
+
 	async auth(): Promise<void> {
 		// authenticate to access the named graph
 		await fetch(`${this._p_endpoint}/auth`, {

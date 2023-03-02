@@ -22,24 +22,24 @@ interface Quad {
 	graph: Term;
 }
 
-interface ClusterObject {
+export interface ClusterObject {
 	id: string;
 	title: string;
 	etag: string;
 }
 
-interface OrgStruct extends ClusterObject {
+export interface OrgStruct extends ClusterObject {
 	repos: Dict<RepoStruct>;
 };
 
-interface RepoStruct extends ClusterObject {
+export interface RepoStruct extends ClusterObject {
 	org: string;
 	pairs: Dict<Set<string>>;
 };
 
 type Triples = Dict<Dict<Set<string>>>;
 
-interface Downloaded {
+export interface Downloaded {
 	pretty: string;
 	prefixes: Dict;
 	triples: Triples;

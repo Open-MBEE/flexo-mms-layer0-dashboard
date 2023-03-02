@@ -17,6 +17,13 @@
 	import type { Dict } from './util/types';
 	import { onMount, setContext } from 'svelte';
 
+	import type {
+		OrgStruct,
+		ClusterObject,
+        RepoStruct,
+        Downloaded,
+	} from '#/app/layer0';
+
 	import {
 		P_IRI_MMS,
 		P_IRI_ROOT_CONTEXT,
@@ -29,10 +36,8 @@
 		prefixes,
 		download,
 		k_endpoint,
-		type OrgStruct,
-		type ClusterObject,
-		type Downloaded,
 	} from '#/app/layer0';
+    import {dd} from './util/dom';
 
 	function terse(sv1_term: string): string {
 		return factory.c1(sv1_term).terse(h_prefixes_share);
@@ -125,7 +130,7 @@
 		}
 	`;
 
-	interface BranchStruct extends ClusterObject {
+	export interface BranchStruct extends ClusterObject {
 		commit: string;
 		snapshots: Dict<{
 			type: string;
@@ -133,7 +138,7 @@
 		}>;
 	}
 
-	async function download_repo(g_org, g_repo): Promise<Downloaded & {branches:Dict<BranchStruct>}> {
+	async function download_repo(g_org: OrgStruct, g_repo: RepoStruct): Promise<Downloaded & {branches:Dict<BranchStruct>}> {
 		const h_branches: Dict<BranchStruct> = {};
 
 		const g_download = await download(SQ_REPO_METADATA, {
@@ -194,7 +199,10 @@
 
 	let h_loaded_models: Dict = {};
 
+	let b_loading = false;
 	async function load_model(p_model: string, dm_button: HTMLButtonElement) {
+		b_loading = true;
+
 		const {
 			pretty: st_repo,
 		} = await download(`
@@ -210,6 +218,32 @@
 		h_loaded_models = {
 			[p_model]: st_repo,
 		};
+
+		b_loading = false;
+	}
+
+	let b_downloading = false;
+	async function download_model(p_model: string, dm_button: HTMLButtonElement, g_org: OrgStruct, g_repo: RepoStruct, g_branch: BranchStruct) {
+		b_downloading = true;
+
+		const {
+			pretty: st_repo,
+		} = await download(`
+			construct { ?s ?p ?o }
+			where {
+				graph <${p_model}> {
+					?s ?p ?o .
+				}
+			}
+		`);
+
+		const d_blob = new Blob([st_repo], {type:'text/plain'});
+		const p_url = URL.createObjectURL(d_blob);
+		const dm_a = dd('a', {href: p_url});
+		dm_a.download = `${value(g_org.id)}_${value(g_repo.id)}_${value(g_branch.id)}_${value(g_branch.etag).slice(0, 6)}.ttl`;
+		dm_a.dispatchEvent(new MouseEvent('click'));
+
+		b_downloading = false;
 	}
 </script>
 
@@ -249,9 +283,45 @@
 
 		}
 	}
+
+	.endpoints {
+		display: flex;
+		gap: 2em;
+		margin-top: 1em;
+		margin-bottom: 1em;
+
+		input {
+			width: 20em;
+		}
+	}
+
+	[disabled] {
+		opacity: 0.4;
+	}
 </style>
 
 <main>
+	<div class="endpoints">
+		<span>
+			<label for="query-url">
+				Query endpoint
+			</label>
+			<input type="text" id="query-url" value={k_endpoint.endpoint} on:change={(d_event) => {
+				k_endpoint.endpoint = d_event.target.value;
+				reload();
+			}}>
+		</span>
+		<span>
+			<label for="gsp-url">
+				GSP endpoint
+			</label>
+			<input type="text" id="gsp-url" value={k_endpoint.gsp} on:change={(d_event) => {
+				k_endpoint.gsp = d_event.target.value;
+				reload();
+			}}>
+		</span>
+	</div>
+
 	<Tabs>
 		<TabList>
 			<Tab>Cluster</Tab>
@@ -365,8 +435,12 @@
 																	{#if h_loaded_models[p_model]}
 																		<rdf-editor format="text/turtle" value={h_loaded_models[p_model]}></rdf-editor>
 																	{:else}
-																		<button class="load-model" on:click={() => load_model(p_model, this)}>
+																		<button class="load-model" disabled={b_loading} on:click={() => load_model(p_model, this)}>
 																			Load entire model into textarea
+																		</button>
+
+																		<button class="download-model" disabled={b_downloading} on:click={() => download_model(p_model, this, g_org, g_repo, g_branch)}>
+																			Download model to file
 																		</button>
 																	{/if}
 																{:catch e_load}
