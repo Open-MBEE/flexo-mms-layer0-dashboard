@@ -16,12 +16,7 @@ yarn install
 
 ## Setup
 
-Create a file `.env.local` with the following variables set:
-```sh
-VITE_ROOT_CONTEXT='https://your-mms5-root-context'
-VITE_SPARQL_ENDPOINT='https://cors-compatible-endpoint/sparql'
-```
-
+Edit the file `.env.dev` with the appropriate variables set (defaults are for local test setup):
 
 ## Running
 
