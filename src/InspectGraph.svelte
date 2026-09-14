@@ -50,6 +50,7 @@
 		if(preload && reload) {
 			try {
 				await reload();
+				c_reloads += 1;
 			}
 			finally {
 				b_refreshing = false;
