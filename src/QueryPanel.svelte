@@ -128,52 +128,73 @@ limit 50`;
 	.query {
 		display: flex;
 		flex-direction: column;
-		gap: 1em;
+		gap: 16px;
 	}
 
+	// preset selector rendered as a row of choice chips
 	.presets {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5em;
 		align-items: center;
+		gap: 8px;
+
+		.label {
+			margin-right: 4px;
+		}
 
 		button {
-			background-color: #eee;
-			color: #333;
+			min-width: 0;
+			height: 32px;
+			padding: 0 14px;
+			border: 1px solid var(--md-divider);
+			border-radius: 16px;
+			background-color: var(--md-surface);
+			color: var(--md-on-surface);
+			font-size: 13px;
+			font-weight: 500;
+			letter-spacing: 0.01em;
+			text-transform: none;
+			box-shadow: none;
+
+			&:hover {
+				background-color: var(--md-hover);
+				box-shadow: none;
+			}
 
 			&.active {
-				background-color: #3458eb;
-				color: white;
+				border-color: transparent;
+				background-color: var(--md-primary-tint);
+				color: var(--md-primary);
 			}
 		}
 	}
 
 	.description {
+		margin-top: -8px;
 		font-size: 13px;
-		color: #666;
+		color: var(--md-on-surface-medium);
 	}
 
 	.params {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1em;
+		gap: 16px;
 
 		label {
 			display: flex;
 			flex-direction: column;
-			font-size: 13px;
-			gap: 2px;
+			gap: 4px;
 
 			input {
-				width: 20em;
-				font-family: 'PT Mono';
+				width: 22em;
+				font-family: var(--md-font-mono);
 				font-size: 12px;
-				padding: 4px 6px;
 			}
 
 			.hint {
-				color: #999;
+				color: var(--md-on-surface-disabled);
 				font-size: 11px;
+				letter-spacing: 0;
 			}
 		}
 	}
@@ -181,28 +202,23 @@ limit 50`;
 	textarea {
 		width: 100%;
 		min-height: 14em;
-		box-sizing: border-box;
-		font-family: 'PT Mono';
+		font-family: var(--md-font-mono);
 		font-size: 12px;
-		padding: 8px;
-		border: 1px solid rgba(0, 0, 0, 0.2);
+		line-height: 1.5;
+		tab-size: 4;
 		resize: vertical;
 	}
 
 	.prefixes {
-		font-size: 11px;
-		color: #999;
-
-		code {
-			font-family: 'PT Mono';
-		}
+		margin-top: -8px;
+		font-size: 12px;
+		color: var(--md-on-surface-medium);
 
 		summary {
 			cursor: pointer;
 		}
 
 		pre {
-			margin: 0.5em 0 0;
 			font-size: 11px;
 		}
 	}
@@ -210,87 +226,72 @@ limit 50`;
 	.actions {
 		display: flex;
 		align-items: center;
-		gap: 1em;
-
-		.busy {
-			background-color: #ebb734;
-			cursor: wait;
-		}
+		gap: 16px;
 
 		.status {
 			font-size: 13px;
-			color: #666;
+			color: var(--md-on-surface-medium);
 		}
 	}
 
 	.error {
-		color: #b00020;
 		white-space: pre-wrap;
 		word-break: break-word;
-		background-color: rgba(176, 0, 32, 0.06);
-		padding: 8px 12px;
-	}
-
-	.empty {
-		color: #999;
-		font-style: italic;
+		font-family: var(--md-font-mono);
+		font-size: 12px;
 	}
 
 	.results {
 		overflow: auto;
 		max-height: 70vh;
-		border: 1px solid rgba(0, 0, 0, 0.1);
+		border: 1px solid var(--md-divider);
+		border-radius: var(--md-radius);
 
 		table {
-			border-collapse: collapse;
-			font-size: 12px;
 			width: 100%;
+			font-size: 12px;
 		}
 
 		th, td {
-			text-align: left;
-			padding: 4px 8px;
-			border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-			vertical-align: top;
+			padding: 6px 12px;
 		}
 
 		th {
 			position: sticky;
 			top: 0;
-			background-color: #f4f4f4;
-			font-family: 'PT Mono';
-			font-weight: normal;
-			color: #3a0770;
+			z-index: 1;
+			background-color: var(--md-surface-variant);
+			font-family: var(--md-font-mono);
+			font-weight: 500;
+			color: var(--md-iri);
+			box-shadow: inset 0 -1px 0 var(--md-divider);
+			border-bottom: none;
 		}
 
 		td {
-			font-family: 'PT Mono';
 			max-width: 40em;
+			font-family: var(--md-font-mono);
 			word-break: break-all;
 		}
 
 		td.uri {
-			color: #3a0770;
+			color: var(--md-iri);
 		}
 
 		td.literal {
-			color: #2f7504;
+			color: var(--md-literal);
 			word-break: break-word;
 		}
 
 		td.unbound {
-			color: #ccc;
-		}
-
-		tbody tr:nth-child(even) {
-			background-color: rgba(0, 0, 0, 0.02);
+			color: var(--md-on-surface-disabled);
 		}
 	}
 </style>
 
 <div class="query">
 	<div class="presets">
-		<span>Presets:</span>
+		<span class="label overline">Presets</span>
 		{#each A_PRESETS as g_each (g_each.id)}
 			<button class:active={g_preset?.id === g_each.id} on:click={() => select_preset(g_each.id)}>{g_each.label}</button>
 		{/each}
@@ -328,7 +329,7 @@ limit 50`;
 	</details>
 
 	<div class="actions">
-		<button class="run" class:busy={b_running} disabled={b_running} on:click={run}>Run query</button>
+		<button class="run" class:busy={b_running} disabled={b_running} on:click={run}>▶ Run query</button>
 		<span class="status">
 			{#if b_running}
 				Running…
@@ -345,7 +346,7 @@ limit 50`;
 	</div>
 
 	{#if e_query}
-		<div class="error">{e_query.message}</div>
+		<div class="banner error">{e_query.message}</div>
 	{:else if g_results}
 		{#if 'boolean' in g_results}
 			<div class="results">
@@ -355,7 +356,7 @@ limit 50`;
 				</table>
 			</div>
 		{:else if !g_results.results.bindings.length}
-			<div class="empty">No results.</div>
+			<div class="missing">No results.</div>
 		{:else}
 			{@const a_vars = g_results.head.vars}
 			<div class="results">

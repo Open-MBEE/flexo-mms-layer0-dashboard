@@ -101,34 +101,38 @@
 
 <style lang="less">
 	.graph {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		color: var(--md-on-surface-medium);
+		font-size: 12px;
+
 		span {
-			font-family: 'PT Mono';
-			background-color: rgba(0, 0, 0, 0.12);
-			padding: 4px 6px;
+			padding: 2px 10px;
+			border-radius: 12px;
+			background-color: var(--md-surface-variant);
+			color: var(--md-iri);
+			font-family: var(--md-font-mono);
+			word-break: break-all;
 		}
 	}
 
 	.actions {
-		padding: 12px 20px;
-
-		:global([class^="new-"]) {
-			background-color: #31d12c;
-		}
-	}
-
-	:global(.busy) {
-		background-color: #ebb734;
-		cursor: wait;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		padding: 12px 0;
 	}
 </style>
 
 <div class="graph">
+	Graph
 	<span>{graph}</span>
 </div>
 
 <div class="actions" bind:this={dm_actions}>
-	<button class="refresh" class:busy={b_refreshing} on:click={refresh}>Refresh</button>
-	<button class="overwrite" on:click={overwrite}>Overwrite</button>
+	<button class="refresh outlined" class:busy={b_refreshing} on:click={refresh}>Refresh</button>
+	<button class="overwrite outlined" on:click={overwrite}>Overwrite</button>
 	<slot name="actions"></slot>
 </div>
 
@@ -137,12 +141,14 @@
 		<rdf-editor bind:this={dm_editor} autoParse format="text/turtle" value={preload} ></rdf-editor>
 	{:else}
 		{#await download_graph()}
-			Loading...
+			<div class="loading">Loading graph…</div>
 		{:then g_download}
 			<rdf-editor bind:this={dm_editor} autoParse format="text/turtle" value={g_download.pretty} ></rdf-editor>
 		{:catch e_download}
-			Failed to load:
-			<pre>{e_download.stack}</pre>
+			<div class="banner">
+				Failed to load:
+				<pre>{e_download.stack}</pre>
+			</div>
 		{/await}
 	{/if}
 {/key}

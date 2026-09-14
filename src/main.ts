@@ -1,3 +1,4 @@
+import './theme.less';
 import Dashboard from './Dashboard.svelte';
 
 const dashboard = new Dashboard({

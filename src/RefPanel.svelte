@@ -98,51 +98,46 @@
 </script>
 
 <style lang="less">
-	.uri {
-		font-family: 'PT Mono';
-		color: #3a0770;
-		word-break: break-all;
-	}
-
-	.literal {
-		color: #2f7504;
-	}
-
 	h4 {
 		display: flex;
 		align-items: center;
-		gap: 0.6em;
-		margin: 0.4em 0;
+		flex-wrap: wrap;
+		gap: 10px;
+		margin: 4px 0 8px;
+		font-size: 20px;
+	}
+
+	.uri {
+		font-size: 12px;
 	}
 
 	.badge {
 		font-size: 11px;
-		font-weight: normal;
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		color: white;
-		background-color: #3458eb;
-		border-radius: 3px;
-		padding: 2px 6px;
+		background-color: var(--md-primary-tint);
+		color: var(--md-primary);
 
 		&.Lock {
-			background-color: #b35c00;
+			background-color: rgba(239, 108, 0, 0.14);
+			color: var(--md-warning);
 		}
 
 		&.Scratch {
-			background-color: #666;
+			background-color: rgba(0, 0, 0, 0.08);
+			color: var(--md-on-surface-medium);
 		}
 	}
 
 	.props {
 		display: grid;
 		grid-template-columns: max-content 1fr;
-		gap: 2px 1.2em;
-		margin: 0.6em 0 1em;
+		gap: 4px 24px;
+		margin: 16px 0;
 		font-size: 14px;
 
 		dt {
-			color: #666;
+			color: var(--md-on-surface-medium);
 		}
 
 		dd {
@@ -151,16 +146,19 @@
 	}
 
 	.model-stats {
-		margin: 0.5em 0;
+		margin: 12px 0;
+		color: var(--md-on-surface-medium);
 	}
 
-	[disabled] {
-		opacity: 0.4;
+	.model-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
 	}
 </style>
 
 <h4>
-	<span class="badge {ref.type}">{H_TYPE_LABELS[ref.type]}</span>
+	<span class="chip badge {ref.type}">{H_TYPE_LABELS[ref.type]}</span>
 	<span class="literal">{value(ref.id)}</span>
 	{#if value(ref.title)}
 		<span class="literal">— {value(ref.title)}</span>
@@ -202,30 +200,34 @@
 				<div class="uri">{p_model}</div>
 
 				{#await model_stats(p_model)}
-					Loading...
+					<div class="loading">Counting triples…</div>
 				{:then g_model}
 					<div class="model-stats">
-						Triple count: {g_model.count}
+						Triple count: <b>{g_model.count}</b>
 					</div>
 
 					{#if h_loaded_models[p_model]}
 						<rdf-editor format="text/turtle" value={h_loaded_models[p_model]}></rdf-editor>
 					{:else}
-						<button class="load-model" disabled={b_loading} on:click={() => load_model(p_model)}>
-							Load entire model into textarea
-						</button>
+						<div class="model-actions">
+							<button class="load-model" disabled={b_loading} on:click={() => load_model(p_model)}>
+								Load entire model into textarea
+							</button>
 
-						<button class="download-model" disabled={b_downloading} on:click={() => download_model(p_model)}>
-							Download model to file
-						</button>
+							<button class="download-model outlined" disabled={b_downloading} on:click={() => download_model(p_model)}>
+								Download model to file
+							</button>
+						</div>
 					{/if}
 				{:catch e_load}
-					Failed to load:
-					<pre>{e_load.stack}</pre>
+					<div class="banner">
+						Failed to load:
+						<pre>{e_load.stack}</pre>
+					</div>
 				{/await}
 			</TabPanel>
 		{/each}
 	</Tabs>
 {:else}
-	<p>This {H_TYPE_LABELS[ref.type]} has no snapshots.</p>
+	<p class="missing">This {H_TYPE_LABELS[ref.type]} has no snapshots.</p>
 {/if}
