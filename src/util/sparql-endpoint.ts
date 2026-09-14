@@ -41,7 +41,7 @@ export class SparqlQueryHelper {
 		}
 
 		// escape dirks
-		return `"""${s_value.replace(/"/g, '\\"')}"""${s_post}`;
+		return `"""${s_value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"""${s_post}`;
 	}
 
 	_h_variables: Dict;
@@ -425,7 +425,7 @@ export namespace Sparql {
 			}
 		}
 
-		return '"""' + s_value.replace(/"/g, '\\"') + '"""' + s_post;
+		return '"""' + s_value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"""' + s_post;
 	}
 
 	export function iri(p_iri: string): string {

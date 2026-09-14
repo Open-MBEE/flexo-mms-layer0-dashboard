@@ -9,6 +9,9 @@
 
 	export let prefixes = H_PREFIXES_DEFAULT;
 
+	// bumped by the dashboard whenever the endpoint changes; discards results from the previous store
+	export let generation = 0;
+
 	const SX_DEFAULT_QUERY = /* syntax: sparql */ `select ?graph (count(*) as ?triples) where {
 	graph ?graph { ?s ?p ?o . }
 }
@@ -23,6 +26,16 @@ limit 50`;
 	let e_query: Error | null = null;
 	let g_results: SparqlResultsJson | null = null;
 	let xt_elapsed = 0;
+	let c_run = 0;
+
+	$: reset(generation);
+
+	function reset(_c_generation: number) {
+		c_run += 1;
+		b_running = false;
+		e_query = null;
+		g_results = null;
+	}
 
 	// the prefix header is prepended on submit, so the editor stays free of boilerplate
 	$: sx_header = prefix_header(prefixes);
@@ -74,16 +87,22 @@ limit 50`;
 		e_query = null;
 		g_results = null;
 
+		const i_run = ++c_run;
 		const xt_start = performance.now();
 		try {
-			g_results = await k_endpoint.query(`${sx_header}\n\n${sx_query}`);
+			const g_response = await k_endpoint.query(`${sx_header}\n\n${sx_query}`);
+			if(i_run !== c_run) return;
+			g_results = g_response;
 		}
 		catch(e_run) {
+			if(i_run !== c_run) return;
 			e_query = e_run as Error;
 		}
 		finally {
-			xt_elapsed = Math.round(performance.now() - xt_start);
-			b_running = false;
+			if(i_run === c_run) {
+				xt_elapsed = Math.round(performance.now() - xt_start);
+				b_running = false;
+			}
 		}
 	}
 
@@ -306,8 +325,11 @@ limit 50`;
 					<label>
 						<span>{g_param.label}</span>
 						<input type="text" placeholder={g_param.placeholder || ''}
-							bind:value={h_params[g_param.key]}
-							on:input={apply_params}
+							value={h_params[g_param.key]}
+							on:input={(d_event) => {
+								h_params = {...h_params, [g_param.key]: d_event.currentTarget.value};
+								apply_params();
+							}}
 							on:keydown={keydown}>
 						{#if g_param.hint}
 							<span class="hint">{g_param.hint}</span>
