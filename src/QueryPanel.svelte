@@ -4,7 +4,7 @@
 	import type { Dict, SparqlBinding, SparqlResultsJson } from '#/util/types';
 	import type { QueryPreset } from '#/app/queries';
 
-	import { H_PREFIXES_DEFAULT, k_endpoint } from '#/app/layer0';
+	import { H_PREFIXES_DEFAULT, P_IRI_ROOT_CONTEXT, k_endpoint } from '#/app/layer0';
 	import { A_PRESETS, prefix_header } from '#/app/queries';
 
 	export let prefixes = H_PREFIXES_DEFAULT;
@@ -18,7 +18,7 @@ limit 50`;
 
 	let g_preset: QueryPreset | null = A_PRESETS[0];
 	let h_params: Dict = Object.fromEntries(A_PRESETS[0].params.map(g => [g.key, g.default]));
-	let sx_query = A_PRESETS[0].build(h_params);
+	let sx_query = dedent(A_PRESETS[0].build(h_params));
 	let b_running = false;
 	let e_query: Error | null = null;
 	let g_results: SparqlResultsJson | null = null;
@@ -27,19 +27,39 @@ limit 50`;
 	// the prefix header is prepended on submit, so the editor stays free of boilerplate
 	$: sx_header = prefix_header(prefixes);
 
+	// strip the template-literal indentation from generated queries; blank lines left by empty params are dropped
+	function dedent(sx_text: string): string {
+		const a_lines = sx_text.split('\n').filter(s => s.trim());
+		const n_indent = Math.min(...a_lines.map(s => s.length - s.trimStart().length));
+		return a_lines.map(s => s.slice(n_indent)).join('\n');
+	}
+
+	// prefix declarations the user typed at the top of the editor survive preset regeneration
+	function prologue(sx_text: string): string {
+		const a_lines = sx_text.split('\n');
+		let i_end = 0;
+		while(i_end < a_lines.length && /^\s*(prefix\s|base\s|$)/i.test(a_lines[i_end])) i_end++;
+		const sx_prologue = a_lines.slice(0, i_end).join('\n').trim();
+		return sx_prologue? `${sx_prologue}\n`: '';
+	}
+
+	function generate(): string {
+		return g_preset? prologue(sx_query)+dedent(g_preset.build(h_params)): sx_query;
+	}
+
 	function select_preset(si_preset: string) {
 		g_preset = A_PRESETS.find(g => si_preset === g.id) || null;
 		if(!g_preset) {
-			sx_query = SX_DEFAULT_QUERY;
+			sx_query = prologue(sx_query)+SX_DEFAULT_QUERY;
 			return;
 		}
 
 		h_params = Object.fromEntries(g_preset.params.map(g => [g.key, h_params[g.key] ?? g.default]));
-		sx_query = g_preset.build(h_params);
+		sx_query = generate();
 	}
 
 	function apply_params() {
-		if(g_preset) sx_query = g_preset.build(h_params);
+		if(g_preset) sx_query = generate();
 	}
 
 	function edit_query(sx_edited: string) {
@@ -74,9 +94,17 @@ limit 50`;
 		}
 	}
 
+	// layer 1 resource IRIs contain slashes past the prefix, so they cannot be prefixed names; show them relative to the root context
+	function terse_iri(p_iri: string): string {
+		const sx_terse = factory.namedNode(p_iri).terse(prefixes);
+		if(!sx_terse.startsWith('<') || !p_iri.startsWith(`${P_IRI_ROOT_CONTEXT}/`)) return sx_terse;
+
+		return `…/${p_iri.slice(P_IRI_ROOT_CONTEXT.length+1)}`;
+	}
+
 	function terse(g_binding: SparqlBinding): string {
 		switch(g_binding.type) {
-			case 'uri': return factory.namedNode(g_binding.value).terse(prefixes);
+			case 'uri': return terse_iri(g_binding.value);
 			case 'bnode': return `_:${g_binding.value}`;
 			default: {
 				if('xml:lang' in g_binding) return `"${g_binding.value}"@${g_binding['xml:lang']}`;
@@ -295,7 +323,7 @@ limit 50`;
 		on:keydown={keydown}></textarea>
 
 	<details class="prefixes">
-		<summary>{Object.keys(prefixes).length} prefixes (e.g. <code>mms:</code>, <code>m-user:</code>) are declared automatically</summary>
+		<summary>{Object.keys(prefixes).length} prefixes (e.g. <code>mms:</code>, <code>m-user:</code>) are declared automatically; add your own <code>prefix</code> lines at the top of the query for anything else</summary>
 		<pre>{sx_header}</pre>
 	</details>
 

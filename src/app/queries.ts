@@ -54,6 +54,15 @@ export function user_term(s_input: string): string {
 	return term(s_trim);
 }
 
+// commits may be given as a bare transaction id (`txn1`), a prefixed name, or a full IRI
+export function commit_pattern(s_input: string, s_var: string): string {
+	const s_trim = s_input.trim();
+
+	if(/^[\w.-]+$/.test(s_trim)) return `${s_var} a mms:Commit ; mms:id ${Sparql.literal(s_trim)} .`;
+
+	return `values ${s_var} { ${term(s_trim)} }`;
+}
+
 // layer 1 keeps each repo's refs and commits in `<repo>/graphs/Metadata`
 const SX_REPO_FROM_GRAPH = 'bind(if(contains(str(?graph), "/repos/"), iri(strbefore(str(?graph), "/graphs/")), ?unbound) as ?repo)';
 
@@ -146,7 +155,8 @@ export const A_PRESETS: QueryPreset[] = [
 				key: 'type',
 				label: 'rdf:type',
 				default: '',
-				placeholder: 'ex:Block  |  https://example.org/Block',
+				placeholder: 'https://example.org/Block  |  mms:Branch',
+				hint: 'full IRI, or a prefixed name using a declared prefix',
 			},
 			G_PARAM_USER,
 			G_PARAM_LIMIT,
@@ -187,6 +197,51 @@ export const A_PRESETS: QueryPreset[] = [
 		},
 	},
 	{
+		id: 'commit-diff',
+		label: 'Commit diff',
+		description: 'Triples inserted and deleted by one commit; give a second, older commit to list every change on the path between them (newest commit first).',
+		params: [
+			{
+				key: 'commit',
+				label: 'Commit',
+				default: '',
+				placeholder: 'txn2  |  https://…/repos/demo/commits/txn2',
+			},
+			{
+				key: 'from',
+				label: 'Since commit',
+				default: '',
+				placeholder: 'txn1',
+				hint: 'older ancestor; its own changes are excluded',
+			},
+			G_PARAM_LIMIT,
+		],
+		build: (h) => /* syntax: sparql */ `
+			select ?when ?commit ?change ?subject ?property ?value where {
+				graph ?graph {
+					${h.from.trim() ? /* syntax: sparql */ `
+					${commit_pattern(h.commit.trim() || '<urn:missing-commit>', '?target')}
+					${commit_pattern(h.from, '?from')}
+					?target mms:parent* ?commit .
+					filter not exists { ?from mms:parent* ?commit . }
+					` : commit_pattern(h.commit.trim() || '<urn:missing-commit>', '?commit')}
+					?commit mms:submitted ?when .
+				}
+				{
+					graph ?graph { ?commit mms:data/mms:insGraph ?diff . }
+					bind("insert" as ?change)
+				}
+				union {
+					graph ?graph { ?commit mms:data/mms:delGraph ?diff . }
+					bind("delete" as ?change)
+				}
+				graph ?diff { ?subject ?property ?value . }
+			}
+			order by desc(?when) desc(?change) ?subject ?property
+			limit ${limit(h.limit)}
+		`,
+	},
+	{
 		id: 'element-history',
 		label: 'Element history',
 		description: 'Every commit that inserted or deleted a triple about one element, with the triples that changed.',
@@ -195,13 +250,14 @@ export const A_PRESETS: QueryPreset[] = [
 				key: 'element',
 				label: 'Element',
 				default: '',
-				placeholder: 'ex:b  |  https://example.org/b',
+				placeholder: 'https://example.org/b  |  m-user:jason',
+				hint: 'full IRI, or a prefixed name using a declared prefix',
 			},
 			G_PARAM_LIMIT,
 		],
 		build: (h) => /* syntax: sparql */ `
 			select ?when ?change ?property ?value ?commit ?user ?repo where {
-				values ?element { ${term(h.element || '<urn:missing-element>')} }
+				values ?element { ${term(h.element.trim() || '<urn:missing-element>')} }
 				{
 					graph ?graph { ?commit mms:data/mms:insGraph ?diff . }
 					bind("insert" as ?change)
