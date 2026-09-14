@@ -54,9 +54,14 @@
 	// tree expansion state keyed by node id; nodes absent from the dict use their default
 	let h_expanded: Dict<boolean> = {};
 
+	// bumped on every reload so responses from a previous endpoint are discarded
+	let c_generation = 0;
+
 	$: h_prefixes_share = (g_cluster?.prefixes || H_PREFIXES_DEFAULT) as typeof H_PREFIXES_DEFAULT;
 
 	async function reload() {
+		const i_generation = ++c_generation;
+
 		g_cluster = null;
 		e_cluster = null;
 		h_repos = {};
@@ -66,10 +71,11 @@
 		g_selection = {type: 'cluster'};
 
 		try {
-			g_cluster = await load_cluster();
+			const g_loaded = await load_cluster();
+			if(i_generation === c_generation) g_cluster = g_loaded;
 		}
 		catch(e_load) {
-			e_cluster = e_load as Error;
+			if(i_generation === c_generation) e_cluster = e_load as Error;
 		}
 	}
 
@@ -96,21 +102,37 @@
 		};
 	}
 
-	function ensure_repo(g_org: OrgStruct, g_repo: RepoStruct): Promise<void> {
+	function without<w_value>(h_dict: Dict<w_value>, si_key: string): Dict<w_value> {
+		return Object.fromEntries(Object.entries(h_dict).filter(([si_entry]) => si_entry !== si_key));
+	}
+
+	function ensure_repo(g_org: OrgStruct, g_repo: RepoStruct, b_force=false): Promise<void> {
 		const p_repo = g_repo.iri;
-		if(h_repos[p_repo]) return Promise.resolve();
+		if(h_repos[p_repo] && !b_force) return Promise.resolve();
 		if(p_repo in h_repo_pending) return h_repo_pending[p_repo];
 
-		return h_repo_pending[p_repo] = load_repo(g_org, g_repo)
+		const i_generation = c_generation;
+
+		const dp_load: Promise<void> = load_repo(g_org, g_repo)
 			.then((g_metadata) => {
+				if(i_generation !== c_generation) return;
+				h_repo_errors = without(h_repo_errors, p_repo);
 				h_repos = {...h_repos, [p_repo]: g_metadata};
 			})
 			.catch((e_load) => {
+				if(i_generation !== c_generation) return;
 				h_repo_errors = {...h_repo_errors, [p_repo]: e_load as Error};
 			})
 			.finally(() => {
-				delete h_repo_pending[p_repo];
+				if(h_repo_pending[p_repo] === dp_load) delete h_repo_pending[p_repo];
 			});
+
+		return h_repo_pending[p_repo] = dp_load;
+	}
+
+	function refresh_selected_repo(): Promise<void> {
+		if(!g_selected_org || !g_selected_repo) return Promise.resolve();
+		return ensure_repo(g_selected_org, g_selected_repo, true);
 	}
 
 	function select_org(g_org: OrgStruct) {
@@ -566,7 +588,8 @@
 								</div>
 
 								{#key g_selected_repo.iri}
-									<InspectGraph graph={p_metadata} preload={g_selected_metadata.pretty} prefixes={h_prefixes_share}>
+									<InspectGraph graph={p_metadata} preload={g_selected_metadata.pretty} prefixes={h_prefixes_share}
+										reload={refresh_selected_repo}>
 										<svelte:fragment slot="actions">
 											<button class="new-branch">New Branch</button>
 										</svelte:fragment>

@@ -81,9 +81,15 @@
 		try {
 			const st_model = await fetch_model(p_model);
 			const d_blob = new Blob([st_model], {type:'text/plain'});
-			const dm_a = create_element<HTMLAnchorElement>('a', {href: URL.createObjectURL(d_blob)});
-			dm_a.download = `${value(org.id)}_${value(repo.id)}_${value(ref.id)}_${value(ref.etag).slice(0, 6)}.ttl`;
-			dm_a.dispatchEvent(new MouseEvent('click'));
+			const p_blob = URL.createObjectURL(d_blob);
+			try {
+				const dm_a = create_element<HTMLAnchorElement>('a', {href: p_blob});
+				dm_a.download = `${value(org.id)}_${value(repo.id)}_${value(ref.id)}_${value(ref.etag).slice(0, 6)}.ttl`;
+				dm_a.dispatchEvent(new MouseEvent('click'));
+			}
+			finally {
+				setTimeout(() => URL.revokeObjectURL(p_blob), 0);
+			}
 		}
 		finally {
 			b_downloading = false;

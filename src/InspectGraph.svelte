@@ -13,8 +13,11 @@
 	export let sort = '';
 	export let preload = '';
 	export let prefixes = H_PREFIXES_DEFAULT;
+	// when the parent supplies `preload`, Refresh asks it to reload and re-supply the graph
+	export let reload: (() => Promise<void>) | null = null;
 
 	let c_reloads = 0;
+	let b_refreshing = false;
 
 	const b_reverse = '-' === sort[0]? 1: 0;
 	const s_sort = b_reverse? sort.slice(1): sort;
@@ -41,13 +44,26 @@
 
 	const mms_prop = (hc2, s_prop) => value(first(hc2[SV1_MMS+s_prop]));
 
-	async function refresh(d_event: MouseEvent) {
-		dm_actions.querySelector('.refresh').classList.add('busy');
-		c_reloads += 1;
+	async function refresh() {
+		b_refreshing = true;
+
+		if(preload && reload) {
+			try {
+				await reload();
+			}
+			finally {
+				b_refreshing = false;
+			}
+		}
+		else {
+			preload = '';
+			c_reloads += 1;
+		}
 	}
 
 	async function download_graph() {
-		const g_download = await download(`
+		try {
+			return await download(`
 			construct { ?s ?p ?o }
 			where {
 				graph <${graph}> {
@@ -75,11 +91,10 @@
 				}));
 			}
 		});
-
-
-		dm_actions.querySelector('.refresh').classList.remove('busy');
-
-		return g_download;
+		}
+		finally {
+			b_refreshing = false;
+		}
 	}
 </script>
 
@@ -111,7 +126,7 @@
 </div>
 
 <div class="actions" bind:this={dm_actions}>
-	<button class="refresh" on:click={refresh}>Refresh</button>
+	<button class="refresh" class:busy={b_refreshing} on:click={refresh}>Refresh</button>
 	<button class="overwrite" on:click={overwrite}>Overwrite</button>
 	<slot name="actions"></slot>
 </div>
