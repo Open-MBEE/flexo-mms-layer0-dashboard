@@ -1,7 +1,10 @@
 <script lang="ts">
 	import InspectGraph from './InspectGraph.svelte';
-	
-	import '@rdfjs-elements/rdf-editor'; 
+	import TreeItem from './TreeItem.svelte';
+	import RefPanel from './RefPanel.svelte';
+	import CollectionPanel from './CollectionPanel.svelte';
+
+	import '@rdfjs-elements/rdf-editor';
 	import {
 		Tabs,
 		Tab,
@@ -9,242 +12,176 @@
 		TabPanel,
 	} from 'svelte-tabs';
 
-	import read_ttl from '@graphy/content.ttl.read';
-	import write_ttl from '@graphy/content.ttl.write';
-	import dataset from '@graphy/memory.dataset.fast';
-	import factory from '@graphy/core.data.factory';
-	import SparqlEndpoint from './util/sparql-endpoint';
 	import type { Dict } from './util/types';
-	import { onMount, setContext } from 'svelte';
+	import { onMount } from 'svelte';
 
 	import type {
+		ClusterData,
 		OrgStruct,
-		ClusterObject,
-        RepoStruct,
-        Downloaded,
+		RepoStruct,
+		RepoMetadata,
+		RefStruct,
+		RefType,
 	} from '#/app/layer0';
 
 	import {
-		P_IRI_MMS,
-		P_IRI_ROOT_CONTEXT,
-		P_IRI_SPARQL_ENDPOINT,
 		H_PREFIXES_DEFAULT,
-		SV1_MMS,
-		SV1_DCT,
-		SV1_RDF,
-		first,
 		prefixes,
-		download,
+		load_cluster,
+		load_repo,
+		parse_ref_iri,
+		value,
 		k_endpoint,
 	} from '#/app/layer0';
-    import {dd} from './util/dom';
 
-	function terse(sv1_term: string): string {
-		return factory.c1(sv1_term).terse(h_prefixes_share);
-	}
+	type Selection =
+		| {type: 'cluster'}
+		| {type: 'registry'}
+		| {type: 'org'; org: string}
+		| {type: 'repo'; org: string; repo: string}
+		| {type: 'collection'; org: string; collection: string}
+		| {type: 'ref'; org: string; repo: string; ref: string};
 
-	function value(sv1_term: string): string {
-		return factory.c1(sv1_term).value;
-	}
+	let g_cluster: ClusterData | null = null;
+	let e_cluster: Error | null = null;
+	let g_selection: Selection = {type: 'cluster'};
 
-	let p_cluster = '';
-	let st_cluster = '';
-	let st_registry = '';
-	let h_orgs_repos: Dict<OrgStruct> = {};
-	let h_prefixes_share: Dict = {};
+	// repo metadata is loaded lazily the first time a repo is expanded or selected
+	let h_repos: Dict<RepoMetadata> = {};
+	let h_repo_errors: Dict<Error> = {};
+	const h_repo_pending: Dict<Promise<void>> = {};
 
+	// tree expansion state keyed by node id; nodes absent from the dict use their default
+	let h_expanded: Dict<boolean> = {};
+
+	$: h_prefixes_share = (g_cluster?.prefixes || H_PREFIXES_DEFAULT) as typeof H_PREFIXES_DEFAULT;
 
 	async function reload() {
-		const h_orgs_repos_local: Dict<OrgStruct> = {};
+		g_cluster = null;
+		e_cluster = null;
+		h_repos = {};
+		h_repo_errors = {};
+		for(const p_repo of Object.keys(h_repo_pending)) delete h_repo_pending[p_repo];
+		h_expanded = {};
+		g_selection = {type: 'cluster'};
 
-		const g_downloaded = await download(`
-			construct { ?s ?p ?o }
-			where {
-				graph m-graph:Cluster {
-					?s ?p ?o
-				}
-			}
-		`, {}, (g_quad) => {
-			if('mms:org' === g_quad.predicate.concise(H_PREFIXES_DEFAULT)) {
-				const p_org = g_quad.object.value;
-				const g_org = h_orgs_repos_local[p_org] = h_orgs_repos_local[p_org] || {repos: {}};
-				g_org.repos[g_quad.subject.value] = {} as RepoStruct;
-			}
-			else if('mms:Cluster' === g_quad.object.concise(H_PREFIXES_DEFAULT)) {
-				p_cluster = g_quad.subject.value;
-			}
-		});
-
-		st_cluster = g_downloaded.pretty;
-		h_prefixes_share = g_downloaded.prefixes;
-		const hc3_cluster = g_downloaded.triples;
-
-		const g_download_reg = await download(`
-			construct { ?s ?p ?o }
-			where {
-				graph m-graph:Graphs {
-					?s ?p ?o
-				}
-			}
-		`, {}, () => {});
-
-		st_registry = g_download_reg.pretty;
-
-		for(const [p_org, g_org] of Object.entries(h_orgs_repos_local)) {
-			const hc2_org = hc3_cluster['>'+p_org];
-
-			Object.assign(g_org, {
-				id: first(hc2_org[SV1_MMS+'id']),
-				title: first(hc2_org[SV1_DCT+'title']),
-				etag: first(hc2_org[SV1_MMS+'etag']),
-			});
-
-			for(const [p_repo, g_repo] of Object.entries(g_org.repos)) {
-				const hc2_repo = hc3_cluster['>'+p_repo];
-
-				Object.assign(g_repo, {
-					id: first(hc2_repo[SV1_MMS+'id']),
-					title: first(hc2_repo[SV1_DCT+'title']),
-					etag: first(hc2_repo[SV1_MMS+'etag']),
-					pairs: hc2_repo,
-				});
-			}
-
-			// sort repos
-			g_org.repos = Object.fromEntries(Object.entries(g_org.repos).sort(([p_repo_a], [p_repo_b]) => p_repo_a.localeCompare(p_repo_b)));
+		try {
+			g_cluster = await load_cluster();
 		}
-
-		h_orgs_repos = h_orgs_repos_local;
+		catch(e_load) {
+			e_cluster = e_load as Error;
+		}
 	}
 
 	onMount(() => {
 		reload();
 	});
 
-	const SQ_REPO_METADATA = `
-		construct { ?s ?p ?o }
-		where {
-			graph mor-graph:Metadata {
-				?s ?p ?o
-			}
-		}
-	`;
-
-	export interface BranchStruct extends ClusterObject {
-		commit: string;
-		snapshots: Dict<{
-			type: string;
-			graph: string;
-		}>;
+	// takes the dict as an argument so template expressions re-evaluate when it changes
+	function is_expanded(h_state: Dict<boolean>, si_node: string, b_default=false): boolean {
+		return si_node in h_state? h_state[si_node]: b_default;
 	}
 
-	async function download_repo(g_org: OrgStruct, g_repo: RepoStruct): Promise<Downloaded & {branches:Dict<BranchStruct>}> {
-		const h_branches: Dict<BranchStruct> = {};
+	function toggle(si_node: string, b_default=false) {
+		h_expanded = {
+			...h_expanded,
+			[si_node]: !is_expanded(h_expanded, si_node, b_default),
+		};
+	}
 
-		const g_download = await download(SQ_REPO_METADATA, {
-			org: value(g_org.id),
-			repo: value(g_repo.id),
-		}, (g_quad) => {
-			if('mms:Branch' === g_quad.object.concise(H_PREFIXES_DEFAULT)) {
-				const p_branch = g_quad.subject.value;
-				h_branches[p_branch] = h_branches[p_branch] = {} as BranchStruct;
-			}
-		});
+	function expand(...a_nodes: string[]) {
+		h_expanded = {
+			...h_expanded,
+			...Object.fromEntries(a_nodes.map(si_node => [si_node, true])),
+		};
+	}
 
-		const {
-			pretty: st_repo,
-			triples: hc3_repo,
-		} = g_download;
+	function ensure_repo(g_org: OrgStruct, g_repo: RepoStruct): Promise<void> {
+		const p_repo = g_repo.iri;
+		if(h_repos[p_repo]) return Promise.resolve();
+		if(p_repo in h_repo_pending) return h_repo_pending[p_repo];
 
-		for(const [p_branch, g_branch] of Object.entries(h_branches)) {
-			const hc2_branch = hc3_repo['>'+p_branch];
-
-			Object.assign(g_branch, {
-				id: first(hc2_branch[SV1_MMS+'id'], '"'),
-				title: first(hc2_branch[SV1_DCT+'title'], '"'),
-				etag: first(hc2_branch[SV1_MMS+'etag'], '"'),
-				commit: first(hc2_branch[SV1_MMS+'commit'], '"'),
-				snapshots: [...(hc2_branch[SV1_MMS+'snapshot'] || [])].reduce((h_out, sv1_snapshot) => {
-					const hc2_snapshot = hc3_repo[sv1_snapshot];
-					return {
-						...h_out,
-						[value(sv1_snapshot)]: {
-							type: first(hc2_snapshot[SV1_RDF+'type']),
-							graph: value(first(hc2_snapshot[SV1_MMS+'graph'])),
-						},
-					};
-				}, {}),
+		return h_repo_pending[p_repo] = load_repo(g_org, g_repo)
+			.then((g_metadata) => {
+				h_repos = {...h_repos, [p_repo]: g_metadata};
+			})
+			.catch((e_load) => {
+				h_repo_errors = {...h_repo_errors, [p_repo]: e_load as Error};
+			})
+			.finally(() => {
+				delete h_repo_pending[p_repo];
 			});
+	}
+
+	function select_org(g_org: OrgStruct) {
+		g_selection = {type: 'org', org: g_org.iri};
+	}
+
+	function select_repo(g_org: OrgStruct, g_repo: RepoStruct) {
+		g_selection = {type: 'repo', org: g_org.iri, repo: g_repo.iri};
+		ensure_repo(g_org, g_repo);
+	}
+
+	function select_collection(g_org: OrgStruct, p_collection: string) {
+		g_selection = {type: 'collection', org: g_org.iri, collection: p_collection};
+	}
+
+	function select_ref(g_org: OrgStruct, g_repo: RepoStruct, p_ref: string) {
+		g_selection = {type: 'ref', org: g_org.iri, repo: g_repo.iri, ref: p_ref};
+		ensure_repo(g_org, g_repo);
+	}
+
+	function toggle_repo(g_org: OrgStruct, g_repo: RepoStruct) {
+		toggle(g_repo.iri);
+		if(is_expanded(h_expanded, g_repo.iri)) ensure_repo(g_org, g_repo);
+	}
+
+	// jumps to a ref referenced by IRI (e.g. from a collection), expanding the tree along the way
+	function navigate_to_ref(p_ref: string) {
+		const g_parsed = parse_ref_iri(p_ref);
+		if(!g_parsed || !g_cluster) return;
+
+		for(const g_org of Object.values(g_cluster.orgs)) {
+			const g_repo = g_org.repos[g_parsed.repo];
+			if(!g_repo) continue;
+
+			expand(g_org.iri, `${g_org.iri}#repos`, g_repo.iri, `${g_repo.iri}#${g_parsed.type}`, `${g_repo.iri}#${g_parsed.type}.auto`);
+			select_ref(g_org, g_repo, p_ref);
+			return;
 		}
-
-		return {
-			...g_download,
-			branches: h_branches,
-		};
 	}
 
-	async function model_stats(p_graph: string) {
-		const a_results = await k_endpoint.select(`
-			select (count(*) as ?count) {
-				graph <${p_graph}> {
-					?s ?p ?o .
-				}
-			}
-		`);
-		
-		return {
-			count: +a_results[0].count.value,
-		};
+	interface RefGroup {
+		type: RefType;
+		label: string;
+		auto: boolean;
+		always: boolean;
 	}
 
-	let h_loaded_models: Dict = {};
+	const A_REF_GROUPS: RefGroup[] = [
+		{type: 'Branch', label: 'Branches', auto: false, always: true},
+		{type: 'Lock', label: 'Tags / locks', auto: false, always: true},
+		{type: 'Scratch', label: 'Scratches', auto: false, always: false},
+		{type: 'Lock', label: 'Commit locks', auto: true, always: false},
+	];
 
-	let b_loading = false;
-	async function load_model(p_model: string, dm_button: HTMLButtonElement) {
-		b_loading = true;
-
-		const {
-			pretty: st_repo,
-		} = await download(`
-			construct { ?s ?p ?o }
-			where {
-				graph <${p_model}> {
-					?s ?p ?o .
-				}
-			}
-		`);
-
-		// assign-update loaded models dict
-		h_loaded_models = {
-			[p_model]: st_repo,
-		};
-
-		b_loading = false;
+	function refs_of(g_metadata: RepoMetadata, s_type: RefType, b_auto=false): [string, RefStruct][] {
+		return Object.entries(g_metadata.refs).filter(([, g_ref]) => s_type === g_ref.type && b_auto === g_ref.auto);
 	}
 
-	let b_downloading = false;
-	async function download_model(p_model: string, dm_button: HTMLButtonElement, g_org: OrgStruct, g_repo: RepoStruct, g_branch: BranchStruct) {
-		b_downloading = true;
-
-		const {
-			pretty: st_repo,
-		} = await download(`
-			construct { ?s ?p ?o }
-			where {
-				graph <${p_model}> {
-					?s ?p ?o .
-				}
-			}
-		`);
-
-		const d_blob = new Blob([st_repo], {type:'text/plain'});
-		const p_url = URL.createObjectURL(d_blob);
-		const dm_a = dd('a', {href: p_url});
-		dm_a.download = `${value(g_org.id)}_${value(g_repo.id)}_${value(g_branch.id)}_${value(g_branch.etag).slice(0, 6)}.ttl`;
-		dm_a.dispatchEvent(new MouseEvent('click'));
-
-		b_downloading = false;
+	function is_selected(g_selection: Selection, g_target: Selection): boolean {
+		return JSON.stringify(g_selection) === JSON.stringify(g_target);
 	}
+
+	function ref_label(g_ref: RefStruct): string {
+		return value(g_ref.id) || g_ref.iri.slice(g_ref.iri.lastIndexOf('/')+1);
+	}
+
+	$: g_selected_org = g_cluster && 'org' in g_selection? g_cluster.orgs[g_selection.org]: null;
+	$: g_selected_repo = g_selected_org && 'repo' in g_selection? g_selected_org.repos[g_selection.repo]: null;
+	$: g_selected_collection = g_selected_org && 'collection' in g_selection? g_selected_org.collections[g_selection.collection]: null;
+	$: g_selected_metadata = g_selected_repo? h_repos[g_selected_repo.iri]: null;
+	$: g_selected_ref = g_selected_metadata && 'ref' in g_selection? g_selected_metadata.refs[g_selection.ref]: null;
 </script>
 
 <style lang="less">
@@ -270,18 +207,11 @@
 	.uri {
 		font-family: 'PT Mono';
 		color: #3a0770;
+		word-break: break-all;
 	}
 
 	.literal {
 		color: #2f7504;
-	}
-
-	.repos {
-		display: flex;
-
-		.repo {
-
-		}
 	}
 
 	.endpoints {
@@ -295,8 +225,107 @@
 		}
 	}
 
-	[disabled] {
-		opacity: 0.4;
+	.cluster {
+		display: flex;
+		align-items: stretch;
+		gap: 1em;
+		min-height: 60vh;
+	}
+
+	.tree {
+		flex: 0 0 300px;
+		max-width: 40vw;
+		overflow: auto;
+		border-right: 1px solid rgba(0, 0, 0, 0.1);
+		padding-right: 0.5em;
+		font-size: 14px;
+
+		ul {
+			margin: 0;
+			padding: 0;
+		}
+
+		.section {
+			margin-top: 0.8em;
+			padding-left: 2px;
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			color: #999;
+		}
+
+		.status {
+			padding: 2px 6px 2px 22px;
+			color: #999;
+			font-style: italic;
+		}
+
+		.error {
+			padding: 2px 6px 2px 22px;
+			color: #b00020;
+		}
+	}
+
+	.detail {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+
+	.breadcrumb {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4em;
+		margin-bottom: 0.6em;
+		font-size: 13px;
+		color: #666;
+
+		.crumb {
+			color: #3458eb;
+			cursor: pointer;
+
+			&:hover {
+				text-decoration: underline;
+			}
+		}
+	}
+
+	.props {
+		display: grid;
+		grid-template-columns: max-content 1fr;
+		gap: 2px 1.2em;
+		margin: 0.6em 0 1em;
+		font-size: 14px;
+
+		dt {
+			color: #666;
+		}
+
+		dd {
+			margin: 0;
+		}
+	}
+
+	.link {
+		color: #3458eb;
+		cursor: pointer;
+		text-decoration: underline;
+	}
+
+	.summary {
+		display: flex;
+		gap: 1.5em;
+		margin: 0.6em 0 1em;
+		font-size: 14px;
+		color: #666;
+
+		b {
+			color: #222;
+		}
+	}
+
+	.missing {
+		color: #999;
+		font-style: italic;
 	}
 </style>
 
@@ -307,7 +336,7 @@
 				Query endpoint
 			</label>
 			<input type="text" id="query-url" value={k_endpoint.endpoint} on:change={(d_event) => {
-				k_endpoint.endpoint = d_event.target.value;
+				k_endpoint.endpoint = d_event.currentTarget.value;
 				reload();
 			}}>
 		</span>
@@ -316,7 +345,7 @@
 				GSP endpoint
 			</label>
 			<input type="text" id="gsp-url" value={k_endpoint.gsp} on:change={(d_event) => {
-				k_endpoint.gsp = d_event.target.value;
+				k_endpoint.gsp = d_event.currentTarget.value;
 				reload();
 			}}>
 		</span>
@@ -333,136 +362,229 @@
 
 		<!-- cluster -->
 		<TabPanel>
-			<h2 class="uri">{p_cluster}</h2>
+			{#if e_cluster}
+				Failed to load cluster:
+				<pre>{e_cluster.stack}</pre>
+			{:else if !g_cluster}
+				Loading...
+			{:else}
+				<h2 class="uri">{g_cluster.cluster}</h2>
 
-			<Tabs>
-				<TabList>
-					<!-- cluster metadata -->
-					<Tab>(cluster metadata)</Tab>
+				<div class="cluster">
+					<!-- tree -->
+					<nav class="tree">
+						<ul>
+							<TreeItem label="Cluster metadata"
+								selected={'cluster' === g_selection.type}
+								on:select={() => g_selection = {type: 'cluster'}} />
 
-					<!-- graph registry -->
-					<Tab>(graph registry)</Tab>
+							<TreeItem label="Graph registry"
+								selected={'registry' === g_selection.type}
+								on:select={() => g_selection = {type: 'registry'}} />
+						</ul>
 
-					<!-- each org -->
-					{#each Object.entries(h_orgs_repos) as [p_org, g_org]}
-						<Tab>{value(g_org.id)}</Tab>
-					{/each}
-				</TabList>
+						<div class="section">Organizations</div>
 
-				<!-- cluster metadata tab -->
-				<TabPanel>
-					<rdf-editor format="text/turtle" value={st_cluster}></rdf-editor>
-				</TabPanel>
+						<ul>
+							{#each Object.entries(g_cluster.orgs) as [p_org, g_org] (p_org)}
+								{@const si_repos = `${p_org}#repos`}
+								{@const si_collections = `${p_org}#collections`}
 
-				<!-- graph registry tab -->
-				<TabPanel>
-					<rdf-editor format="text/turtle" value={st_registry}></rdf-editor>
-				</TabPanel>
+								<TreeItem label={value(g_org.id)}
+									expandable
+									expanded={is_expanded(h_expanded, p_org, true)}
+									selected={is_selected(g_selection, {type: 'org', org: p_org})}
+									on:toggle={() => toggle(p_org, true)}
+									on:select={() => select_org(g_org)}>
 
-				<!-- each org -->
-				{#each Object.entries(h_orgs_repos) as [p_org, g_org]}
-					<!-- org -->
-					<TabPanel>
-						<h3 class="literal">{terse(g_org.title)}</h3>
+									<!-- repos -->
+									<TreeItem label="Repositories" group
+										count={Object.keys(g_org.repos).length}
+										expandable selectable={false}
+										expanded={is_expanded(h_expanded, si_repos, true)}
+										on:toggle={() => toggle(si_repos, true)}>
 
-						<!-- org info -->
+										{#each Object.entries(g_org.repos) as [p_repo, g_repo] (p_repo)}
+											{@const g_metadata = h_repos[p_repo]}
 
+											<TreeItem label={value(g_repo.id)}
+												expandable
+												expanded={is_expanded(h_expanded, p_repo)}
+												selected={is_selected(g_selection, {type: 'repo', org: p_org, repo: p_repo})}
+												on:toggle={() => toggle_repo(g_org, g_repo)}
+												on:select={() => select_repo(g_org, g_repo)}>
 
-						<!-- repos -->
-						<Tabs>
-							<TabList>
-								<!-- each repo -->
-								{#each Object.entries(g_org.repos) as [p_repo, g_repo]}
-									<Tab>{value(g_repo.id)}</Tab>
-								{/each}
-							</TabList>
+												{#if h_repo_errors[p_repo]}
+													<li class="error">Failed to load: {h_repo_errors[p_repo].message}</li>
+												{:else if !g_metadata}
+													<li class="status">Loading...</li>
+												{:else}
+													{#each A_REF_GROUPS as g_group (g_group.label)}
+														{@const a_refs = refs_of(g_metadata, g_group.type, g_group.auto)}
+														{@const si_group = `${p_repo}#${g_group.type}${g_group.auto? '.auto': ''}`}
 
-							<!-- each repo -->
-							{#each Object.entries(g_org.repos) as [p_repo, g_repo]}
-								{@const g_prefixes = prefixes({org:value(g_org.id), repo:value(g_repo.id)})}
-								{@const p_metadata = `${g_prefixes['mor-graph']}Metadata`}
+														{#if g_group.always || a_refs.length}
+															<TreeItem label={g_group.label} group
+																count={a_refs.length}
+																expandable selectable={false}
+																expanded={is_expanded(h_expanded, si_group, !g_group.auto)}
+																on:toggle={() => toggle(si_group, !g_group.auto)}>
 
-								<TabPanel>
-									<h4 class="literal">{terse(g_repo.title)}</h4>
+																{#each a_refs as [p_ref, g_ref] (p_ref)}
+																	<TreeItem label={ref_label(g_ref)}
+																		selected={is_selected(g_selection, {type: 'ref', org: p_org, repo: p_repo, ref: p_ref})}
+																		on:select={() => select_ref(g_org, g_repo, p_ref)} />
+																{:else}
+																	<li class="status">none</li>
+																{/each}
+															</TreeItem>
+														{/if}
+													{/each}
+												{/if}
+											</TreeItem>
+										{:else}
+											<li class="status">none</li>
+										{/each}
+									</TreeItem>
 
-									{#await download_repo(g_org, g_repo)}
-										Loading...
-									{:then gd_repo}
-										<!-- repo panel -->
-										<Tabs>
-											<TabList>
-												<Tab>(repo metadata)</Tab>
+									<!-- collections -->
+									<TreeItem label="Collections" group
+										count={Object.keys(g_org.collections).length}
+										expandable selectable={false}
+										expanded={is_expanded(h_expanded, si_collections, true)}
+										on:toggle={() => toggle(si_collections, true)}>
 
-												{#each Object.entries(gd_repo.branches) as [p_branch, g_branch]}
-													<Tab>{value(g_branch.id)}</Tab>
-												{/each}
-											</TabList>
-
-											<!-- all metadata -->
-											<TabPanel>
-												<InspectGraph graph={p_metadata} preload={gd_repo.pretty} prefixes={h_prefixes_share}>
-													<svelte:fragment slot="actions">
-														<button class="new-branch">New Branch</button>
-													</svelte:fragment>
-												</InspectGraph>
-											</TabPanel>
-
-											<!-- branches -->
-											{#each Object.entries(gd_repo.branches) as [p_branch, g_branch]}
-												<TabPanel>
-													<h6 class="literal">{terse(g_branch.id)}</h6>
-
-													<!-- snapshots -->
-													<Tabs>
-														<TabList>
-															{#each Object.entries(g_branch.snapshots) as [p_snapshot, g_snapshot]}
-																<Tab>{terse(g_snapshot.type)}</Tab>
-															{/each}
-														</TabList>
-
-														{#each Object.entries(g_branch.snapshots) as [p_snapshot, g_snapshot]}
-															{@const p_model = g_snapshot.graph}
-															<TabPanel>
-																<div class="uri">{p_model}</div>
-
-																{#await model_stats(p_model)}
-																	Loading...
-																{:then g_model}
-																	<div class="model-stats">
-																		Triple count: {g_model.count}
-																	</div>
-
-																	{#if h_loaded_models[p_model]}
-																		<rdf-editor format="text/turtle" value={h_loaded_models[p_model]}></rdf-editor>
-																	{:else}
-																		<button class="load-model" disabled={b_loading} on:click={() => load_model(p_model, this)}>
-																			Load entire model into textarea
-																		</button>
-
-																		<button class="download-model" disabled={b_downloading} on:click={() => download_model(p_model, this, g_org, g_repo, g_branch)}>
-																			Download model to file
-																		</button>
-																	{/if}
-																{:catch e_load}
-																	Failed to load:
-																	<pre>{e_load.stack}</pre>
-																{/await}
-															</TabPanel>
-														{/each}
-													</Tabs>
-												</TabPanel>
-											{/each}
-										</Tabs>
-									{:catch e_download}
-										Failed to load:
-										<pre>{e_download.stack}</pre>
-									{/await}
-								</TabPanel>
+										{#each Object.entries(g_org.collections) as [p_collection, g_collection] (p_collection)}
+											<TreeItem label={value(g_collection.id)}
+												count={g_collection.collects.length}
+												selected={is_selected(g_selection, {type: 'collection', org: p_org, collection: p_collection})}
+												on:select={() => select_collection(g_org, p_collection)} />
+										{:else}
+											<li class="status">none</li>
+										{/each}
+									</TreeItem>
+								</TreeItem>
+							{:else}
+								<li class="status">No organizations found</li>
 							{/each}
-						</Tabs>
-					</TabPanel>
-				{/each}
-			</Tabs>
+						</ul>
+					</nav>
+
+					<!-- detail pane -->
+					<section class="detail">
+						{#if 'cluster' === g_selection.type}
+							<h3>Cluster metadata</h3>
+							<rdf-editor format="text/turtle" value={g_cluster.pretty}></rdf-editor>
+
+						{:else if 'registry' === g_selection.type}
+							<h3>Graph registry</h3>
+							<rdf-editor format="text/turtle" value={g_cluster.registry}></rdf-editor>
+
+						{:else if !g_selected_org}
+							<p class="missing">Selected organization no longer exists.</p>
+
+						{:else}
+							{@const g_org = g_selected_org}
+
+							<div class="breadcrumb">
+								<span class="crumb" on:click={() => select_org(g_org)}>{value(g_org.id)}</span>
+								{#if g_selected_repo}
+									{@const g_repo = g_selected_repo}
+									<span>/</span>
+									<span class="crumb" on:click={() => select_repo(g_org, g_repo)}>{value(g_repo.id)}</span>
+								{/if}
+								{#if g_selected_collection}
+									<span>/</span>
+									<span>{value(g_selected_collection.id)}</span>
+								{/if}
+								{#if g_selected_ref}
+									<span>/</span>
+									<span>{ref_label(g_selected_ref)}</span>
+								{/if}
+							</div>
+
+							{#if 'org' === g_selection.type}
+								<h3 class="literal">{value(g_selected_org.title) || value(g_selected_org.id)}</h3>
+								<div class="uri">{g_selected_org.iri}</div>
+
+								<dl class="props">
+									<dt>id</dt>
+									<dd class="literal">{value(g_selected_org.id)}</dd>
+									{#if value(g_selected_org.etag)}
+										<dt>etag</dt>
+										<dd class="literal">{value(g_selected_org.etag)}</dd>
+									{/if}
+									<dt>repositories</dt>
+									<dd>
+										{#each Object.entries(g_selected_org.repos) as [p_repo, g_repo], i_repo (p_repo)}
+											{#if i_repo}, {/if}
+											<span class="link" on:click={() => select_repo(g_org, g_repo)}>{value(g_repo.id)}</span>
+										{:else}
+											<span class="missing">none</span>
+										{/each}
+									</dd>
+									<dt>collections</dt>
+									<dd>
+										{#each Object.entries(g_selected_org.collections) as [p_collection, g_collection], i_collection (p_collection)}
+											{#if i_collection}, {/if}
+											<span class="link" on:click={() => select_collection(g_org, p_collection)}>{value(g_collection.id)}</span>
+										{:else}
+											<span class="missing">none</span>
+										{/each}
+									</dd>
+								</dl>
+
+							{:else if 'collection' === g_selection.type}
+								{#if g_selected_collection}
+									<CollectionPanel org={g_selected_org} collection={g_selected_collection}
+										on:navigate={(d_event) => navigate_to_ref(d_event.detail)} />
+								{:else}
+									<p class="missing">Selected collection no longer exists.</p>
+								{/if}
+
+							{:else if !g_selected_repo}
+								<p class="missing">Selected repository no longer exists.</p>
+
+							{:else if h_repo_errors[g_selected_repo.iri]}
+								Failed to load repository metadata:
+								<pre>{h_repo_errors[g_selected_repo.iri].stack}</pre>
+
+							{:else if !g_selected_metadata}
+								Loading...
+
+							{:else if 'repo' === g_selection.type}
+								{@const p_metadata = `${prefixes({org: value(g_selected_org.id), repo: value(g_selected_repo.id)})['mor-graph']}Metadata`}
+
+								<h3 class="literal">{value(g_selected_repo.title) || value(g_selected_repo.id)}</h3>
+								<div class="uri">{g_selected_repo.iri}</div>
+
+								<div class="summary">
+									<span><b>{refs_of(g_selected_metadata, 'Branch').length}</b> branches</span>
+									<span><b>{refs_of(g_selected_metadata, 'Lock').length}</b> tags / locks</span>
+									<span><b>{refs_of(g_selected_metadata, 'Scratch').length}</b> scratches</span>
+									<span><b>{refs_of(g_selected_metadata, 'Lock', true).length}</b> commit locks</span>
+								</div>
+
+								{#key g_selected_repo.iri}
+									<InspectGraph graph={p_metadata} preload={g_selected_metadata.pretty} prefixes={h_prefixes_share}>
+										<svelte:fragment slot="actions">
+											<button class="new-branch">New Branch</button>
+										</svelte:fragment>
+									</InspectGraph>
+								{/key}
+
+							{:else if g_selected_ref}
+								{#key g_selected_ref.iri}
+									<RefPanel org={g_selected_org} repo={g_selected_repo} ref={g_selected_ref} prefixes={h_prefixes_share} />
+								{/key}
+
+							{:else}
+								<p class="missing">Selected ref was not found in this repository's metadata.</p>
+							{/if}
+						{/if}
+					</section>
+				</div>
+			{/if}
 		</TabPanel>
 
 		<!-- transactions -->

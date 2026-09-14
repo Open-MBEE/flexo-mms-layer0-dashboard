@@ -22,7 +22,9 @@ interface Quad {
 	graph: Term;
 }
 
+// c1 terms (e.g. `"master`, `>http://...`) as produced by graphy; unwrap with `factory.c1(...).value`
 export interface ClusterObject {
+	iri: string;
 	id: string;
 	title: string;
 	etag: string;
@@ -30,6 +32,7 @@ export interface ClusterObject {
 
 export interface OrgStruct extends ClusterObject {
 	repos: Dict<RepoStruct>;
+	collections: Dict<CollectionStruct>;
 };
 
 export interface RepoStruct extends ClusterObject {
@@ -37,12 +40,46 @@ export interface RepoStruct extends ClusterObject {
 	pairs: Dict<Set<string>>;
 };
 
+export interface CollectionStruct extends ClusterObject {
+	org: string;
+	collects: string[];
+};
+
+export type RefType = 'Branch' | 'Lock' | 'Scratch';
+
+export interface SnapshotStruct {
+	type: string;
+	graph: string;
+}
+
+export interface RefStruct extends ClusterObject {
+	type: RefType;
+	commit: string;
+	created: string;
+	createdBy: string;
+	snapshots: Dict<SnapshotStruct>;
+	// locks layer 1 creates automatically for every commit (`mor-lock:Commit.<txn>`)
+	auto: boolean;
+}
+
 type Triples = Dict<Dict<Set<string>>>;
 
 export interface Downloaded {
 	pretty: string;
 	prefixes: Dict;
 	triples: Triples;
+}
+
+export interface ClusterData {
+	cluster: string;
+	pretty: string;
+	registry: string;
+	prefixes: Dict;
+	orgs: Dict<OrgStruct>;
+}
+
+export interface RepoMetadata extends Downloaded {
+	refs: Dict<RefStruct>;
 }
 
 
@@ -136,6 +173,189 @@ export const k_endpoint = new SparqlEndpoint({
 
 export function first<w_return>(asi: Iterable<w_return>, w_fallback: any=undefined) { return [...(asi || [w_fallback])][0]; }
 
+export const value = (sv1_term: string): string => factory.c1(sv1_term).value;
+
+const last_segment = (p_iri: string) => p_iri.slice(p_iri.lastIndexOf('/')+1);
+
+const has_type = (hc2: Dict<Set<string>>, s_class: string) => !!hc2?.[SV1_RDF+'type']?.has(SV1_MMS+s_class);
+
+const sort_by_key = <w_value>(h_dict: Dict<w_value>): Dict<w_value> => Object.fromEntries(
+	Object.entries(h_dict).sort(([si_a], [si_b]) => si_a.localeCompare(si_b))
+);
+
+const R_REF_IRI = /^(.*\/orgs\/[^/]+\/repos\/[^/]+)\/(branches|locks|scratches)\/([^/]+)$/;
+
+const H_REF_TYPES: Dict<RefType> = {
+	branches: 'Branch',
+	locks: 'Lock',
+	scratches: 'Scratch',
+};
+
+export interface ParsedRefIri {
+	repo: string;
+	type: RefType;
+	id: string;
+}
+
+// splits a ref IRI such as `.../orgs/o/repos/r/locks/v1` into its repo IRI, ref type and id
+export function parse_ref_iri(p_ref: string): ParsedRefIri | null {
+	const m_ref = R_REF_IRI.exec(p_ref);
+	if(!m_ref) return null;
+
+	return {
+		repo: m_ref[1],
+		type: H_REF_TYPES[m_ref[2]],
+		id: decodeURIComponent(m_ref[3]),
+	};
+}
+
+function cluster_object(hc3: Triples, p_iri: string): ClusterObject {
+	const hc2 = hc3['>'+p_iri] || {};
+
+	return {
+		iri: p_iri,
+		id: first(hc2[SV1_MMS+'id'], '"'+last_segment(p_iri)),
+		title: first(hc2[SV1_DCT+'title'], '"'),
+		etag: first(hc2[SV1_MMS+'etag'], '"'),
+	};
+}
+
+// downloads `m-graph:Cluster` and `m-graph:Graphs`; groups repos and collections under their orgs
+export async function load_cluster(): Promise<ClusterData> {
+	const g_cluster = await download(`
+		construct { ?s ?p ?o }
+		where {
+			graph m-graph:Cluster {
+				?s ?p ?o
+			}
+		}
+	`);
+
+	const g_registry = await download(`
+		construct { ?s ?p ?o }
+		where {
+			graph m-graph:Graphs {
+				?s ?p ?o
+			}
+		}
+	`);
+
+	const hc3_cluster = g_cluster.triples || {};
+	const h_orgs: Dict<OrgStruct> = {};
+	let p_cluster = '';
+
+	const org_of = (p_org: string): OrgStruct => h_orgs[p_org] = h_orgs[p_org] || {
+		...cluster_object(hc3_cluster, p_org),
+		repos: {},
+		collections: {},
+	};
+
+	for(const [sc1_subject, hc2] of Object.entries(hc3_cluster)) {
+		if('>' !== sc1_subject[0]) continue;
+		const p_subject = sc1_subject.slice(1);
+
+		if(has_type(hc2, 'Cluster')) {
+			p_cluster = p_subject;
+		}
+		else if(has_type(hc2, 'Org')) {
+			org_of(p_subject);
+		}
+		else if(has_type(hc2, 'Repo')) {
+			const p_org = value(first(hc2[SV1_MMS+'org'], '>'));
+			org_of(p_org).repos[p_subject] = {
+				...cluster_object(hc3_cluster, p_subject),
+				org: p_org,
+				pairs: hc2,
+			};
+		}
+		else if(has_type(hc2, 'Collection')) {
+			const p_org = value(first(hc2[SV1_MMS+'org'], '>'));
+			org_of(p_org).collections[p_subject] = {
+				...cluster_object(hc3_cluster, p_subject),
+				org: p_org,
+				collects: [...(hc2[SV1_MMS+'collects'] || [])].map(value).sort(),
+			};
+		}
+	}
+
+	for(const g_org of Object.values(h_orgs)) {
+		g_org.repos = sort_by_key(g_org.repos);
+		g_org.collections = sort_by_key(g_org.collections);
+	}
+
+	return {
+		cluster: p_cluster,
+		pretty: g_cluster.pretty,
+		registry: g_registry.pretty,
+		prefixes: g_cluster.prefixes,
+		orgs: sort_by_key(h_orgs),
+	};
+}
+
+// downloads a repo's `mor-graph:Metadata` and extracts its branches, locks and scratches
+export async function load_repo(g_org: OrgStruct, g_repo: RepoStruct): Promise<RepoMetadata> {
+	const g_download = await download(`
+		construct { ?s ?p ?o }
+		where {
+			graph mor-graph:Metadata {
+				?s ?p ?o
+			}
+		}
+	`, {
+		org: value(g_org.id),
+		repo: value(g_repo.id),
+	});
+
+	const hc3_repo = g_download.triples || {};
+	const h_refs: Dict<RefStruct> = {};
+
+	for(const [sc1_subject, hc2] of Object.entries(hc3_repo)) {
+		if('>' !== sc1_subject[0]) continue;
+		const p_subject = sc1_subject.slice(1);
+
+		const s_type = (['Branch', 'Lock', 'Scratch'] as RefType[]).find(s => has_type(hc2, s));
+		if(!s_type) continue;
+
+		h_refs[p_subject] = {
+			...cluster_object(hc3_repo, p_subject),
+			type: s_type,
+			commit: first(hc2[SV1_MMS+'commit'], ''),
+			created: first(hc2[SV1_MMS+'created'], ''),
+			createdBy: first(hc2[SV1_MMS+'createdBy'], ''),
+			auto: 'Lock' === s_type && last_segment(p_subject).startsWith('Commit.'),
+			snapshots: [...(hc2[SV1_MMS+'snapshot'] || [])].reduce((h_out, sv1_snapshot) => {
+				const hc2_snapshot = hc3_repo[sv1_snapshot] || {};
+				return {
+					...h_out,
+					[value(sv1_snapshot)]: {
+						type: first(hc2_snapshot[SV1_RDF+'type'], ''),
+						graph: value(first(hc2_snapshot[SV1_MMS+'graph'], '>')),
+					},
+				};
+			}, {} as Dict<SnapshotStruct>),
+		};
+	}
+
+	return {
+		...g_download,
+		refs: sort_by_key(h_refs),
+	};
+}
+
+export async function model_stats(p_graph: string): Promise<{count: number}> {
+	const a_results = await k_endpoint.select(`
+		select (count(*) as ?count) {
+			graph <${p_graph}> {
+				?s ?p ?o .
+			}
+		}
+	`);
+
+	return {
+		count: +a_results[0].count.value,
+	};
+}
+
 
 
 export async function download(
@@ -202,7 +422,3 @@ export async function download(
 	});
 }
 
-
-let p_cluster = '';
-let st_cluster = '';
-let h_orgs_repos: Dict<OrgStruct> = {};
