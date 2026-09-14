@@ -273,7 +273,7 @@ export async function load_cluster(): Promise<ClusterData> {
 			org_of(p_org).collections[p_subject] = {
 				...cluster_object(hc3_cluster, p_subject),
 				org: p_org,
-				collects: [...(hc2[SV1_MMS+'collects'] || [])].map(value).sort(),
+				collects: [...(hc2[SV1_MMS+'collects'] || [])].map(value).sort((p_a, p_b) => p_a.localeCompare(p_b)),
 			};
 		}
 	}
