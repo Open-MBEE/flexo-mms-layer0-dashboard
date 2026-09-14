@@ -694,7 +694,7 @@
 
 		<!-- query -->
 		<TabPanel>
-			<QueryPanel prefixes={h_prefixes_share} />
+			<QueryPanel prefixes={h_prefixes_share} generation={c_generation} />
 		</TabPanel>
 	</Tabs>
 	</div>
