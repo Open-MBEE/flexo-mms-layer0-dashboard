@@ -68,3 +68,13 @@ export interface SparqlBindingMap {
 }
 
 export type SparqlBindings = Array<SparqlBindingMap>;
+
+export type SparqlResultsJson =
+	| {
+		head: {vars: string[]};
+		results: {bindings: SparqlBindings};
+	}
+	| {
+		head: Record<string, never>;
+		boolean: boolean;
+	};

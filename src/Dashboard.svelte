@@ -3,6 +3,7 @@
 	import TreeItem from './TreeItem.svelte';
 	import RefPanel from './RefPanel.svelte';
 	import CollectionPanel from './CollectionPanel.svelte';
+	import QueryPanel from './QueryPanel.svelte';
 
 	import '@rdfjs-elements/rdf-editor';
 	import {
@@ -380,6 +381,8 @@
 			<Tab>Transactions</Tab>
 
 			<Tab>Access Control</Tab>
+
+			<Tab>Query</Tab>
 		</TabList>
 
 		<!-- cluster -->
@@ -639,6 +642,11 @@
 					<InspectGraph graph={H_PREFIXES_DEFAULT['m-graph']+'AccessControl.Definitions'} />
 				</TabPanel>
 			</Tabs>
+		</TabPanel>
+
+		<!-- query -->
+		<TabPanel>
+			<QueryPanel prefixes={h_prefixes_share} generation={c_generation} />
 		</TabPanel>
 	</Tabs>
 
