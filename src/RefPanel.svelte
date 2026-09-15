@@ -46,6 +46,25 @@
 		return factory.c1(sv1_term).terse(h_prefixes);
 	}
 
+	interface ModelTab {
+		key: string;
+		label: string;
+		graph: string;
+	}
+
+	// each ref exposes one graph per snapshot, except scratches which expose their single graph directly
+	$: a_models = ((): ModelTab[] => {
+		if('Scratch' === ref.type) {
+			return ref.graph? [{key: ref.graph, label: 'scratch', graph: ref.graph}]: [];
+		}
+
+		return Object.entries(ref.snapshots).map(([p_snapshot, g_snapshot]) => ({
+			key: p_snapshot,
+			label: g_snapshot.type? terse(g_snapshot.type, h_prefixes_terse): p_snapshot,
+			graph: g_snapshot.graph,
+		}));
+	})();
+
 	let h_loaded_models: Dict = {};
 	let b_loading = false;
 	let b_downloading = false;
@@ -186,16 +205,16 @@
 	{/if}
 </dl>
 
-{#if Object.keys(ref.snapshots).length}
+{#if a_models.length}
 	<Tabs>
 		<TabList>
-			{#each Object.entries(ref.snapshots) as [p_snapshot, g_snapshot] (p_snapshot)}
-				<Tab>{g_snapshot.type? terse(g_snapshot.type, h_prefixes_terse): p_snapshot}</Tab>
+			{#each a_models as g_model_tab (g_model_tab.key)}
+				<Tab>{g_model_tab.label}</Tab>
 			{/each}
 		</TabList>
 
-		{#each Object.entries(ref.snapshots) as [p_snapshot, g_snapshot] (p_snapshot)}
-			{@const p_model = g_snapshot.graph}
+		{#each a_models as g_model_tab (g_model_tab.key)}
+			{@const p_model = g_model_tab.graph}
 			<TabPanel>
 				<div class="uri">{p_model}</div>
 

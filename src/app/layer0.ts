@@ -58,6 +58,8 @@ export interface RefStruct extends ClusterObject {
 	created: string;
 	createdBy: string;
 	snapshots: Dict<SnapshotStruct>;
+	// scratches have no snapshots; their model lives directly in `mor-graph:Scratch.<id>`
+	graph: string;
 	// locks layer 1 creates automatically for every commit (`mor-lock:Commit.<txn>`)
 	auto: boolean;
 }
@@ -138,6 +140,7 @@ export const prefixes = (gc_prefixes: Dict) => {
 				'mor-commit': `${p_repo}/commits/`,
 				'mor-branch': `${p_repo}/branches/`,
 				'mor-lock': `${p_repo}/locks/`,
+				'mor-scratch': `${p_repo}/scratches/`,
 				'mor-snapshot': `${p_repo}/snapshots/`,
 				'mor-graph': `${p_repo}/graphs/`,
 			});
@@ -208,6 +211,9 @@ export function parse_ref_iri(p_ref: string): ParsedRefIri | null {
 		id: decodeURIComponent(m_ref[3]),
 	};
 }
+
+// maps a scratch IRI such as `.../repos/r/scratches/s` to its graph IRI `.../repos/r/graphs/Scratch.s`
+export const scratch_graph = (p_scratch: string) => p_scratch.replace('/scratches/', '/graphs/Scratch.');
 
 function cluster_object(hc3: Triples, p_iri: string): ClusterObject {
 	const hc2 = hc3['>'+p_iri] || {};
@@ -323,6 +329,7 @@ export async function load_repo(g_org: OrgStruct, g_repo: RepoStruct): Promise<R
 			created: first(hc2[SV1_MMS+'created'], ''),
 			createdBy: first(hc2[SV1_MMS+'createdBy'], ''),
 			auto: 'Lock' === s_type && last_segment(p_subject).startsWith('Commit.'),
+			graph: 'Scratch' === s_type? scratch_graph(p_subject): '',
 			snapshots: [...(hc2[SV1_MMS+'snapshot'] || [])].reduce((h_out, sv1_snapshot) => {
 				const hc2_snapshot = hc3_repo[sv1_snapshot] || {};
 				return {
@@ -421,4 +428,3 @@ export async function download(
 		ds_writer.end();
 	});
 }
-
