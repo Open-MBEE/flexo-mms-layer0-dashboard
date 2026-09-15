@@ -122,6 +122,7 @@
 			})
 			.catch((e_load) => {
 				if(i_generation !== c_generation) return;
+				h_repos = without(h_repos, p_repo);
 				h_repo_errors = {...h_repo_errors, [p_repo]: e_load as Error};
 			})
 			.finally(() => {
@@ -355,6 +356,10 @@
 
 	.detail .uri {
 		font-size: 12px;
+	}
+
+	.retry {
+		margin-top: 12px;
 	}
 
 	.props {
@@ -621,6 +626,7 @@
 									Failed to load repository metadata:
 									<pre>{h_repo_errors[g_selected_repo.iri].stack}</pre>
 								</div>
+								<button class="retry" on:click={refresh_selected_repo}>Retry</button>
 
 							{:else if !g_selected_metadata}
 								<div class="loading">Loading repository metadata…</div>
