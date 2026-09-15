@@ -35,43 +35,36 @@
 </script>
 
 <style lang="less">
-	.uri {
-		font-family: 'PT Mono';
-		color: #3a0770;
-		word-break: break-all;
-	}
-
-	.literal {
-		color: #2f7504;
-	}
-
 	h4 {
 		display: flex;
 		align-items: center;
-		gap: 0.6em;
-		margin: 0.4em 0;
+		flex-wrap: wrap;
+		gap: 10px;
+		margin: 4px 0 8px;
+		font-size: 20px;
+	}
+
+	.uri {
+		font-size: 12px;
 	}
 
 	.badge {
 		font-size: 11px;
-		font-weight: normal;
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		color: white;
-		background-color: #7a2ea8;
-		border-radius: 3px;
-		padding: 2px 6px;
+		background-color: rgba(106, 27, 154, 0.12);
+		color: #6a1b9a;
 	}
 
 	.props {
 		display: grid;
 		grid-template-columns: max-content 1fr;
-		gap: 2px 1.2em;
-		margin: 0.6em 0 1em;
+		gap: 4px 24px;
+		margin: 16px 0;
 		font-size: 14px;
 
 		dt {
-			color: #666;
+			color: var(--md-on-surface-medium);
 		}
 
 		dd {
@@ -80,42 +73,28 @@
 	}
 
 	table {
-		border-collapse: collapse;
-		font-size: 14px;
-
-		th, td {
-			text-align: left;
-			padding: 4px 12px 4px 0;
-			border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-		}
-
-		th {
-			font-weight: 500;
-			color: #666;
-		}
+		width: 100%;
 	}
 
 	.type {
 		font-size: 11px;
+		letter-spacing: 0.06em;
 		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		color: #666;
+		color: var(--md-on-surface-medium);
 	}
 
 	.link {
-		color: #3458eb;
+		color: var(--md-primary);
 		cursor: pointer;
-		text-decoration: underline;
-	}
 
-	.missing {
-		color: #999;
-		font-style: italic;
+		&:hover {
+			text-decoration: underline;
+		}
 	}
 </style>
 
 <h4>
-	<span class="badge">collection</span>
+	<span class="chip badge">collection</span>
 	<span class="literal">{value(collection.id)}</span>
 	{#if value(collection.title)}
 		<span class="literal">— {value(collection.title)}</span>
@@ -173,5 +152,5 @@
 		</tbody>
 	</table>
 {:else}
-	<p>This collection does not collect any refs.</p>
+	<p class="missing">This collection does not collect any refs.</p>
 {/if}

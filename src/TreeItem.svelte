@@ -29,21 +29,23 @@
 	.row {
 		display: flex;
 		align-items: center;
-		gap: 4px;
-		padding: 2px 6px 2px 2px;
-		border-radius: 3px;
+		gap: 6px;
+		height: 32px;
+		padding: 0 8px 0 4px;
+		border-radius: 0 16px 16px 0;
 		white-space: nowrap;
 		cursor: default;
+		transition: background-color 0.15s;
 
 		&:hover {
-			background-color: rgba(0, 0, 0, 0.05);
+			background-color: var(--md-hover);
 		}
 
 		&.selected {
-			background-color: rgba(52, 88, 235, 0.15);
+			background-color: var(--md-primary-tint);
 
 			.label {
-				color: #3458eb;
+				color: var(--md-primary);
 				font-weight: 500;
 			}
 		}
@@ -53,26 +55,32 @@
 		}
 	}
 
+	// the twisty is a plain glyph, not a Material button
 	.twisty {
 		flex: none;
-		width: 16px;
-		height: 16px;
-		line-height: 16px;
-		text-align: center;
-		font-size: 10px;
-		color: #666;
-		background: none;
-		border: none;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 0;
+		width: 20px;
+		height: 20px;
 		padding: 0;
+		border: none;
+		border-radius: 50%;
+		background-color: transparent;
+		color: var(--md-on-surface-medium);
+		font-size: 10px;
+		box-shadow: none;
 		cursor: pointer;
 
-		:global(body &) {
-			background-color: transparent;
-			color: #666;
-			border: none;
-			padding: 0;
-			font-size: 10px;
+		&:hover {
+			background-color: rgba(0, 0, 0, 0.08);
+			box-shadow: none;
 		}
+	}
+
+	span.twisty:hover {
+		background-color: transparent;
 	}
 
 	.label {
@@ -82,17 +90,22 @@
 
 	.group .label {
 		font-size: 11px;
+		font-weight: 500;
+		letter-spacing: 0.08em;
 		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		color: #666;
+		color: var(--md-on-surface-medium);
 	}
 
 	.count {
+		min-width: 8px;
+		padding: 0 7px;
+		border-radius: 10px;
+		background-color: rgba(0, 0, 0, 0.08);
+		color: var(--md-on-surface-medium);
 		font-size: 11px;
-		color: #888;
-		background-color: rgba(0, 0, 0, 0.06);
-		border-radius: 8px;
-		padding: 0 6px;
+		font-weight: 500;
+		line-height: 18px;
+		text-align: center;
 	}
 
 	ul {

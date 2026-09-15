@@ -1,6 +1,7 @@
 import type {
 	Dict,
 	SparqlBindings,
+	SparqlResultsJson,
 } from '#/util/types';
 
 import AsyncLockPool from './async-lock-pool';
@@ -40,7 +41,7 @@ export class SparqlQueryHelper {
 		}
 
 		// escape dirks
-		return `"""${s_value.replace(/"/g, '\\"')}"""${s_post}`;
+		return `"""${s_value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"""${s_post}`;
 	}
 
 	_h_variables: Dict;
@@ -314,16 +315,20 @@ export class SparqlEndpoint {
 		return sx_text;
 	}
 
+	// submit SPARQL SELECT or ASK query and return the full results document
+	async query(z_query: SparqlQuery, fk_controller?: AbortCallback): Promise<SparqlResultsJson> {
+		const d_res = await this.execute(z_query, 'application/sparql-results+json', fk_controller);
+
+		return (await d_res.json()) as SparqlResultsJson;
+	}
+
 	// submit SPARQL SELECT query
 	async select(z_select: string | SparqlQuery, fk_controller?: AbortCallback): Promise<SparqlBindings> {
-		const d_res = await this.execute(z_select, 'application/sparql-results+json', fk_controller);
+		const g_res = await this.query(z_select, fk_controller);
 
-		// parse results as JSON
-		const g_res = (await d_res.json()) as {
-			results: {
-				bindings: SparqlBindings;
-			};
-		};
+		if(!('results' in g_res)) {
+			throw new Error('Expected SELECT results but endpoint returned an ASK response');
+		}
 
 		// return bindings
 		return g_res.results.bindings;
@@ -420,7 +425,7 @@ export namespace Sparql {
 			}
 		}
 
-		return '"""' + s_value.replace(/"/g, '\\"') + '"""' + s_post;
+		return '"""' + s_value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"""' + s_post;
 	}
 
 	export function iri(p_iri: string): string {

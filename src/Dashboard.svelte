@@ -3,6 +3,7 @@
 	import TreeItem from './TreeItem.svelte';
 	import RefPanel from './RefPanel.svelte';
 	import CollectionPanel from './CollectionPanel.svelte';
+	import QueryPanel from './QueryPanel.svelte';
 
 	import '@rdfjs-elements/rdf-editor';
 	import {
@@ -208,50 +209,95 @@
 </script>
 
 <style lang="less">
-	@import url('https://fonts.googleapis.com/css2?family=PT+Mono&family=Poppins&family=Roboto&display=swap');
+	.app-bar {
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 16px 32px;
+		min-height: 64px;
+		padding: 8px 24px;
+		background-color: var(--md-primary);
+		color: var(--md-on-primary);
+		box-shadow: var(--md-elevation-4);
 
-	body {
-		button {
-			:global(&) {
-				background-color: #3458eb;
-				color: white;
-				border: 1px solid rgba(0, 0, 0, 0.2);
-				font-size: 14px;
-				padding: 6px 10px;
-				cursor: pointer;
+		.title {
+			display: flex;
+			align-items: baseline;
+			gap: 10px;
+			margin-right: auto;
+			font-size: 20px;
+			font-weight: 500;
+			letter-spacing: 0.0125em;
+
+			small {
+				font-size: 13px;
+				font-weight: 400;
+				opacity: 0.8;
 			}
 		}
 	}
 
-	main {
-		font-family: Roboto;
-	}
-
-	.uri {
-		font-family: 'PT Mono';
-		color: #3a0770;
-		word-break: break-all;
-	}
-
-	.literal {
-		color: #2f7504;
-	}
-
 	.endpoints {
 		display: flex;
-		gap: 2em;
-		margin-top: 1em;
-		margin-bottom: 1em;
+		flex-wrap: wrap;
+		gap: 16px;
+
+		label {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+			color: rgba(255, 255, 255, 0.8);
+			font-size: 11px;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+		}
 
 		input {
-			width: 20em;
+			width: 22em;
+			padding: 6px 10px;
+			border-color: transparent;
+			background-color: rgba(255, 255, 255, 0.16);
+			color: var(--md-on-primary);
+			font-family: var(--md-font-mono);
+			font-size: 12px;
+
+			&:hover {
+				background-color: rgba(255, 255, 255, 0.24);
+				border-color: transparent;
+			}
+
+			&:focus {
+				background-color: var(--md-surface);
+				color: var(--md-on-surface);
+				border-color: transparent;
+				box-shadow: none;
+			}
 		}
+	}
+
+	.content {
+		padding: 24px;
+	}
+
+	.surface {
+		padding: 0 24px 24px;
+		background-color: var(--md-surface);
+		border-radius: var(--md-radius);
+		box-shadow: var(--md-elevation-1);
+	}
+
+	.cluster-iri {
+		margin: 4px 0 16px;
+		font-size: 12px;
 	}
 
 	.cluster {
 		display: flex;
 		align-items: stretch;
-		gap: 1em;
+		gap: 24px;
 		min-height: 60vh;
 	}
 
@@ -259,8 +305,8 @@
 		flex: 0 0 300px;
 		max-width: 40vw;
 		overflow: auto;
-		border-right: 1px solid rgba(0, 0, 0, 0.1);
-		padding-right: 0.5em;
+		padding-right: 16px;
+		border-right: 1px solid var(--md-divider);
 		font-size: 14px;
 
 		ul {
@@ -269,23 +315,19 @@
 		}
 
 		.section {
-			margin-top: 0.8em;
-			padding-left: 2px;
-			font-size: 11px;
-			text-transform: uppercase;
-			letter-spacing: 0.04em;
-			color: #999;
+			margin: 16px 0 4px;
+			padding-left: 8px;
 		}
 
 		.status {
-			padding: 2px 6px 2px 22px;
-			color: #999;
+			padding: 4px 8px 4px 28px;
+			color: var(--md-on-surface-disabled);
 			font-style: italic;
 		}
 
 		.error {
-			padding: 2px 6px 2px 22px;
-			color: #b00020;
+			padding: 4px 8px 4px 28px;
+			color: var(--md-error);
 		}
 	}
 
@@ -297,13 +339,13 @@
 	.breadcrumb {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.4em;
-		margin-bottom: 0.6em;
+		gap: 8px;
+		margin-bottom: 12px;
 		font-size: 13px;
-		color: #666;
+		color: var(--md-on-surface-medium);
 
 		.crumb {
-			color: #3458eb;
+			color: var(--md-primary);
 			cursor: pointer;
 
 			&:hover {
@@ -312,15 +354,23 @@
 		}
 	}
 
+	.detail .uri {
+		font-size: 12px;
+	}
+
+	.retry {
+		margin-top: 12px;
+	}
+
 	.props {
 		display: grid;
 		grid-template-columns: max-content 1fr;
-		gap: 2px 1.2em;
-		margin: 0.6em 0 1em;
+		gap: 4px 24px;
+		margin: 16px 0;
 		font-size: 14px;
 
 		dt {
-			color: #666;
+			color: var(--md-on-surface-medium);
 		}
 
 		dd {
@@ -329,51 +379,50 @@
 	}
 
 	.link {
-		color: #3458eb;
+		color: var(--md-primary);
 		cursor: pointer;
-		text-decoration: underline;
+
+		&:hover {
+			text-decoration: underline;
+		}
 	}
 
 	.summary {
 		display: flex;
-		gap: 1.5em;
-		margin: 0.6em 0 1em;
-		font-size: 14px;
-		color: #666;
+		flex-wrap: wrap;
+		gap: 12px;
+		margin: 16px 0;
 
-		b {
-			color: #222;
+		.chip b {
+			margin-right: 5px;
+			color: var(--md-primary);
 		}
-	}
-
-	.missing {
-		color: #999;
-		font-style: italic;
 	}
 </style>
 
-<main>
+<header class="app-bar">
+	<div class="title">Flexo MMS <small>Layer 0 Dashboard</small></div>
+
 	<div class="endpoints">
-		<span>
-			<label for="query-url">
-				Query endpoint
-			</label>
-			<input type="text" id="query-url" value={k_endpoint.endpoint} on:change={(d_event) => {
+		<label>
+			Query endpoint
+			<input type="text" id="query-url" spellcheck="false" value={k_endpoint.endpoint} on:change={(d_event) => {
 				k_endpoint.endpoint = d_event.currentTarget.value;
 				reload();
 			}}>
-		</span>
-		<span>
-			<label for="gsp-url">
-				GSP endpoint
-			</label>
-			<input type="text" id="gsp-url" value={k_endpoint.gsp} on:change={(d_event) => {
+		</label>
+		<label>
+			GSP endpoint
+			<input type="text" id="gsp-url" spellcheck="false" value={k_endpoint.gsp} on:change={(d_event) => {
 				k_endpoint.gsp = d_event.currentTarget.value;
 				reload();
 			}}>
-		</span>
+		</label>
 	</div>
+</header>
 
+<main class="content">
+	<div class="surface">
 	<Tabs>
 		<TabList>
 			<Tab>Cluster</Tab>
@@ -381,17 +430,21 @@
 			<Tab>Transactions</Tab>
 
 			<Tab>Access Control</Tab>
+
+			<Tab>Query</Tab>
 		</TabList>
 
 		<!-- cluster -->
 		<TabPanel>
 			{#if e_cluster}
-				Failed to load cluster:
-				<pre>{e_cluster.stack}</pre>
+				<div class="banner">
+					Failed to load cluster:
+					<pre>{e_cluster.stack}</pre>
+				</div>
 			{:else if !g_cluster}
-				Loading...
+				<div class="loading">Loading cluster…</div>
 			{:else}
-				<h2 class="uri">{g_cluster.cluster}</h2>
+				<div class="uri cluster-iri">{g_cluster.cluster}</div>
 
 				<div class="cluster">
 					<!-- tree -->
@@ -406,7 +459,7 @@
 								on:select={() => g_selection = {type: 'registry'}} />
 						</ul>
 
-						<div class="section">Organizations</div>
+						<div class="section overline">Organizations</div>
 
 						<ul>
 							{#each Object.entries(g_cluster.orgs) as [p_org, g_org] (p_org)}
@@ -440,7 +493,7 @@
 												{#if h_repo_errors[p_repo]}
 													<li class="error">Failed to load: {h_repo_errors[p_repo].message}</li>
 												{:else if !g_metadata}
-													<li class="status">Loading...</li>
+													<li class="status">Loading…</li>
 												{:else}
 													{#each A_REF_GROUPS as g_group (g_group.label)}
 														{@const a_refs = refs_of(g_metadata, g_group.type, g_group.auto)}
@@ -569,12 +622,14 @@
 								<p class="missing">Selected repository no longer exists.</p>
 
 							{:else if h_repo_errors[g_selected_repo.iri]}
-								Failed to load repository metadata:
-								<pre>{h_repo_errors[g_selected_repo.iri].stack}</pre>
+								<div class="banner">
+									Failed to load repository metadata:
+									<pre>{h_repo_errors[g_selected_repo.iri].stack}</pre>
+								</div>
 								<button class="retry" on:click={refresh_selected_repo}>Retry</button>
 
 							{:else if !g_selected_metadata}
-								Loading...
+								<div class="loading">Loading repository metadata…</div>
 
 							{:else if 'repo' === g_selection.type}
 								{@const p_metadata = `${prefixes({org: value(g_selected_org.id), repo: value(g_selected_repo.id)})['mor-graph']}Metadata`}
@@ -583,17 +638,17 @@
 								<div class="uri">{g_selected_repo.iri}</div>
 
 								<div class="summary">
-									<span><b>{refs_of(g_selected_metadata, 'Branch').length}</b> branches</span>
-									<span><b>{refs_of(g_selected_metadata, 'Lock').length}</b> tags / locks</span>
-									<span><b>{refs_of(g_selected_metadata, 'Scratch').length}</b> scratches</span>
-									<span><b>{refs_of(g_selected_metadata, 'Lock', true).length}</b> commit locks</span>
+									<span class="chip"><b>{refs_of(g_selected_metadata, 'Branch').length}</b> branches</span>
+									<span class="chip"><b>{refs_of(g_selected_metadata, 'Lock').length}</b> tags / locks</span>
+									<span class="chip"><b>{refs_of(g_selected_metadata, 'Scratch').length}</b> scratches</span>
+									<span class="chip"><b>{refs_of(g_selected_metadata, 'Lock', true).length}</b> commit locks</span>
 								</div>
 
 								{#key g_selected_repo.iri}
 									<InspectGraph graph={p_metadata} preload={g_selected_metadata.pretty} prefixes={h_prefixes_share}
 										reload={refresh_selected_repo}>
 										<svelte:fragment slot="actions">
-											<button class="new-branch">New Branch</button>
+											<button class="new-branch success">New Branch</button>
 										</svelte:fragment>
 									</InspectGraph>
 								{/key}
@@ -642,6 +697,11 @@
 				</TabPanel>
 			</Tabs>
 		</TabPanel>
-	</Tabs>
 
+		<!-- query -->
+		<TabPanel>
+			<QueryPanel prefixes={h_prefixes_share} generation={c_generation} />
+		</TabPanel>
+	</Tabs>
+	</div>
 </main>
